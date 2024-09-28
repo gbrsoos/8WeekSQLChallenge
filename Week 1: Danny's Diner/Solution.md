@@ -235,6 +235,33 @@ ORDER BY customer_id ASC;
 | 1| A	          | 2             | 25  	|
 | 1| B	          | 3             | 40  	|
 
+## Question 9: If each $1 spent equates to 10 points and sushi has a 2x points multiplier — how many points would each customer have?
+```sql
+WITH points_CTE AS(
+	SELECT 
+		menu.product_id,
+		CASE
+			WHEN product_id = 1 THEN price * 20
+			ELSE price * 10 END AS points
+	FROM dannys_diner.menu
+)
+
+SELECT
+	sales.customer_id,
+	SUM(points_CTE.points)
+FROM dannys_diner.sales
+INNER JOIN points_CTE
+	ON sales.product_id = points_CTE.product_id
+GROUP BY customer_id
+ORDER BY customer_id ASC;
+```
+
+|  | customer_id  | sum_points    |
+|--|--------------|---------------|
+| 1| A	          | 860           |
+| 1| B	          | 940           |
+| 1| C	          | 360           |
+
 
 
 
