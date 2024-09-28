@@ -184,7 +184,7 @@ ORDER BY customer_id ASC;
 |  | customer_id  | product_name  |
 |--|--------------|---------------|
 | 1| A	          | ramen         |
-| 1| B	          | sushi         |
+| 2| B	          | sushi         |
 
 ## Question 7: Which item was purchased just before the customer became a member?
 ```sql
@@ -212,7 +212,7 @@ ORDER BY customer_id ASC;
 |  | customer_id  | product_name  |
 |--|--------------|---------------|
 | 1| A	          | sushi         |
-| 1| B	          | sushi         |
+| 2| B	          | sushi         |
 
 ## Question 8: What is the total items and amount spent for each member before they became a member?
 ```sql
@@ -233,7 +233,7 @@ ORDER BY customer_id ASC;
 |  | customer_id  | num_products  |amount_spent |
 |--|--------------|---------------|-------------|
 | 1| A	          | 2             | 25  	|
-| 1| B	          | 3             | 40  	|
+| 2| B	          | 3             | 40  	|
 
 ## Question 9: If each $1 spent equates to 10 points and sushi has a 2x points multiplier — how many points would each customer have?
 ```sql
@@ -259,9 +259,44 @@ ORDER BY customer_id ASC;
 |  | customer_id  | sum_points    |
 |--|--------------|---------------|
 | 1| A	          | 860           |
-| 1| B	          | 940           |
-| 1| C	          | 360           |
+| 2| B	          | 940           |
+| 3| C	          | 360           |
 
+## Question 9: In the first week after a customer joins the program (including their join date) they earn 2x points on all items, not just sushi — how many points do customer A and B have at the end of January?
+```sql
+WITH dates_CTE AS (
+	SELECT 
+		members.customer_id,
+		join_date,
+		join_date + 6 AS closing_day,
+		DATE_TRUNC(
+			'month', '2021-01-31'::DATE)
+			+ interval '1 month'
+			- interval '1 day' AS end_of_jan
+	FROM dannys_diner.members
+)
+
+SELECT 
+	sales.customer_id,
+	SUM(CASE
+			WHEN menu.product_id = 1 THEN menu.price * 20
+			WHEN sales.order_date BETWEEN dates_CTE.join_date AND dates_CTE.closing_day THEN menu.price * 20
+			ELSE menu.price * 10 END) AS total_points
+FROM dannys_diner.sales
+INNER JOIN dates_CTE
+	ON sales.customer_id = dates_CTE.customer_id
+	AND dates_CTE.join_date <= sales.order_date
+	AND sales.order_date <= dates_CTE.end_of_jan
+INNER JOIN dannys_diner.menu
+	ON sales.product_id = menu.product_id
+GROUP BY sales.customer_id
+ORDER BY customer_id ASC;
+```
+
+|  | customer_id  | total_points  |
+|--|--------------|---------------|
+| 1| A	          | 1020          |
+| 2| B	          | 320           |
 
 
 
