@@ -186,6 +186,34 @@ ORDER BY customer_id ASC;
 | 1| A	          | ramen         |
 | 1| B	          | sushi         |
 
+## Question 7: Which item was purchased just before the customer became a member?
+```sql
+WITH premember_purchases AS (
+	SELECT 
+		members.customer_id,
+		sales.product_id,
+	ROW_NUMBER() OVER(PARTITION BY members.customer_id ORDER BY sales.order_date DESC) as ranking
+	FROM dannys_diner.members
+	INNER JOIN dannys_diner.sales
+		ON members.customer_id = sales.customer_id
+	AND sales.order_date < members.join_date
+)
+
+SELECT
+	customer_id,
+	menu.product_name
+FROM premember_purchases
+INNER JOIN dannys_diner.menu
+	ON premember_purchases.product_id = menu.product_id
+WHERE ranking = 1
+ORDER BY customer_id ASC;
+```
+
+|  | customer_id  | product_name  |
+|--|--------------|---------------|
+| 1| A	          | sushi         |
+| 1| B	          | sushi         |
+
 
 
 
