@@ -59,7 +59,7 @@ VALUES
 ```
 
 ## Question 1: What is the total amount each customer spent at the restaurant?
-'''sql
+```sql
 SELECT sales.customer_id, 
 	SUM(menu.price) AS total_spent
 FROM dannys_diner.sales
@@ -67,10 +67,125 @@ INNER JOIN dannys_diner.menu
 	ON sales.product_id = menu.product_id
 GROUP BY sales.customer_id
 ORDER BY total_spent ASC;
-'''
+```
 
 |  | customer_id  | total_spent   |
 |--|--------------|---------------|
 | 1| C            | 36            |
 | 2| B            | 74            |
 | 3| A            | 76            |
+
+## Question 2: How many days has each customer visited the restaurant?
+```sql
+SELECT customer_id, 
+	COUNT(DISTINCT order_date) 
+FROM dannys_diner.sales
+GROUP BY customer_id;
+```
+
+|  | customer_id  | count  	  |
+|--|--------------|---------------|
+| 1| A            | 4             |
+| 2| B            | 6             |
+| 3| C            | 2             |
+
+## Question 3: What was the first item from the menu purchased by each customer?
+```sql
+WITH merged_purchases AS (
+SELECT sales.customer_id,
+	sales.order_date,
+	menu.product_name,
+	DENSE_RANK() OVER (PARTITION BY sales.customer_id ORDER BY sales.order_date) AS row_num
+FROM dannys_diner.sales
+INNER JOIN dannys_diner.menu
+	ON sales.product_id = menu.product_id
+)
+
+SELECT customer_id,
+	product_name
+FROM merged_purchases
+WHERE row_num = 1
+GROUP BY customer_id, product_name;
+```
+
+|  | customer_id  | count  	  |
+|--|--------------|---------------|
+| 1| A            | curry         |
+| 2| A            | sushi         |
+| 3| B            | curry         |
+| 4| C		  | ramen         |
+
+## Question 4: What is the most purchased item on the menu and how many times was it purchased by all customers?
+```sql
+SELECT product_name, COUNT(product_name) AS times_purchased FROM dannys_diner.menu
+INNER JOIN dannys_diner.sales
+	ON menu.product_id = sales.product_id
+GROUP BY product_name
+ORDER BY times_purchased DESC
+LIMIT 1;
+```
+
+|  | product_name | purchased  	  |
+|--|--------------|---------------|
+| 1| ramen        | 8             |
+
+## Question 5: Which item was the most popular for each customer?
+```sql
+WITH most_popular AS (
+	SELECT sales.customer_id,
+			menu.product_name,
+			COUNT(menu.product_id),
+			DENSE_RANK() OVER (PARTITION BY sales.customer_id ORDER BY COUNT(sales.customer_id) DESC) as purchase_rank
+	FROM dannys_diner.sales
+	INNER JOIN dannys_diner.menu
+		ON sales.product_id = menu.product_id
+	GROUP BY sales.customer_id, menu.product_name
+)
+
+SELECT customer_id,
+		product_name,
+		count
+FROM most_popular
+WHERE purchase_rank = 1
+ORDER BY customer_id
+```
+
+|  | customer_id  | product_name  | count  |
+|--|--------------|---------------|--------|
+| 1| A            | ramen         | 3      |
+| 2| B            | sushi         | 2      | 
+| 3| B            | curry         | 2      |
+| 4| B		  | ramen         | 2      |
+| 5| C		  | ramen         | 3      |
+
+## Question 6: Which item was purchased first by the customer after they became a member?
+```sql
+WITH join_date AS(
+	SELECT
+		members.customer_id,
+		sales.product_id,
+		ROW_NUMBER() OVER (PARTITION BY members.customer_id ORDER BY sales.order_date) AS row_number
+	FROM dannys_diner.members
+	INNER JOIN dannys_diner.sales
+		ON members.customer_id = sales.customer_id
+		AND sales.order_date > members.join_date
+)
+
+SELECT 
+	customer_id,
+	menu.product_name
+FROM join_date
+INNER JOIN dannys_diner.menu
+	ON join_date.product_id = menu.product_id
+WHERE row_number = 1
+ORDER BY customer_id ASC;
+```
+
+|  | customer_id  | product_name  |
+|--|--------------|---------------|
+| 1| A	          | ramen         |
+| 1| B	          | sushi         |
+
+
+
+
