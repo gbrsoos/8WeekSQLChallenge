@@ -18,7 +18,7 @@ Danny has provided you with a sample of his overall customer data due to privacy
 
 ### Database
 #### Entity Relationship Diagram
-![Week 1 - Entity Relationship Diagram](Week 1: Danny's Diner/utils/Week1_dbdiagam.png)
+![Week 1 - Entity Relationship Diagram](utils/Week1_dbdiagam.png)
 
 ## Solution
 ### Step 1: Getting hold of the database from [DB-Fiddle](https://www.db-fiddle.com/f/2rM8RAnq7h5LLDTzZiRWcd/138)
