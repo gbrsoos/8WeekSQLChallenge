@@ -1,7 +1,25 @@
+# 8 Week SQL Challenge by Danny Ma
+The goal of the 8 Week SQL Challenge is to cover all the main use cases of the SQL domain in a weekly breakdown. Besides practice, I find it particularly good for learning purposes. This is why I decided to complete this challenge and add the results to my portfolio.
+
+## Week 1 - Danny's Diner
 ![8WeekSQLChallenge - Week1](https://8weeksqlchallenge.com/images/case-study-designs/1.png)
 
-## Step 1: Getting hold of the database from [DB-Fiddle](https://www.db-fiddle.com/f/2rM8RAnq7h5LLDTzZiRWcd/138)
+### Introduction
+Danny seriously loves Japanese food so in the beginning of 2021, he decides to embark upon a risky venture and opens up a cute little restaurant that sells his 3 favourite foods: sushi, curry and ramen.
 
+Danny’s Diner is in need of your assistance to help the restaurant stay afloat - the restaurant has captured some very basic data from their few months of operation but have no idea how to use their data to help them run the business.
+
+### Problem statement
+Danny wants to use the data to answer a few simple questions about his customers, especially about their visiting patterns, how much money they’ve spent and also which menu items are their favourite. Having this deeper connection with his customers will help him deliver a better and more personalised experience for his loyal customers.
+
+He plans on using these insights to help him decide whether he should expand the existing customer loyalty program - additionally he needs help to generate some basic datasets so his team can easily inspect the data without needing to use SQL.
+
+Danny has provided you with a sample of his overall customer data due to privacy issues - but he hopes that these examples are enough for you to write fully functioning SQL queries to help him answer his questions!
+
+### Database
+
+## Solution
+### Step 1: Getting hold of the database from [DB-Fiddle](https://www.db-fiddle.com/f/2rM8RAnq7h5LLDTzZiRWcd/138)
 ```sql
 CREATE SCHEMA dannys_diner;
 SET search_path = dannys_diner;
@@ -58,7 +76,7 @@ VALUES
   ('B', '2021-01-09');
 ```
 
-## Question 1: What is the total amount each customer spent at the restaurant?
+### Question 1: What is the total amount each customer spent at the restaurant?
 ```sql
 SELECT sales.customer_id, 
 	SUM(menu.price) AS total_spent
@@ -75,7 +93,7 @@ ORDER BY total_spent ASC;
 | 2| B            | 74            |
 | 3| A            | 76            |
 
-## Question 2: How many days has each customer visited the restaurant?
+### Question 2: How many days has each customer visited the restaurant?
 ```sql
 SELECT customer_id, 
 	COUNT(DISTINCT order_date) 
@@ -89,7 +107,7 @@ GROUP BY customer_id;
 | 2| B            | 6             |
 | 3| C            | 2             |
 
-## Question 3: What was the first item from the menu purchased by each customer?
+### Question 3: What was the first item from the menu purchased by each customer?
 ```sql
 WITH merged_purchases AS (
 SELECT sales.customer_id,
@@ -115,7 +133,7 @@ GROUP BY customer_id, product_name;
 | 3| B            | curry         |
 | 4| C		  | ramen         |
 
-## Question 4: What is the most purchased item on the menu and how many times was it purchased by all customers?
+### Question 4: What is the most purchased item on the menu and how many times was it purchased by all customers?
 ```sql
 SELECT product_name, COUNT(product_name) AS times_purchased FROM dannys_diner.menu
 INNER JOIN dannys_diner.sales
@@ -129,7 +147,7 @@ LIMIT 1;
 |--|--------------|---------------|
 | 1| ramen        | 8             |
 
-## Question 5: Which item was the most popular for each customer?
+### Question 5: Which item was the most popular for each customer?
 ```sql
 WITH most_popular AS (
 	SELECT sales.customer_id,
@@ -158,7 +176,7 @@ ORDER BY customer_id
 | 4| B		  | ramen         | 2      |
 | 5| C		  | ramen         | 3      |
 
-## Question 6: Which item was purchased first by the customer after they became a member?
+### Question 6: Which item was purchased first by the customer after they became a member?
 ```sql
 WITH join_date AS(
 	SELECT
@@ -186,7 +204,7 @@ ORDER BY customer_id ASC;
 | 1| A	          | ramen         |
 | 2| B	          | sushi         |
 
-## Question 7: Which item was purchased just before the customer became a member?
+### Question 7: Which item was purchased just before the customer became a member?
 ```sql
 WITH premember_purchases AS (
 	SELECT 
@@ -214,7 +232,7 @@ ORDER BY customer_id ASC;
 | 1| A	          | sushi         |
 | 2| B	          | sushi         |
 
-## Question 8: What is the total items and amount spent for each member before they became a member?
+### Question 8: What is the total items and amount spent for each member before they became a member?
 ```sql
 SELECT
 	sales.customer_id,
@@ -235,7 +253,7 @@ ORDER BY customer_id ASC;
 | 1| A	          | 2             | 25  	|
 | 2| B	          | 3             | 40  	|
 
-## Question 9: If each $1 spent equates to 10 points and sushi has a 2x points multiplier — how many points would each customer have?
+### Question 9: If each $1 spent equates to 10 points and sushi has a 2x points multiplier — how many points would each customer have?
 ```sql
 WITH points_CTE AS(
 	SELECT 
@@ -262,7 +280,7 @@ ORDER BY customer_id ASC;
 | 2| B	          | 940           |
 | 3| C	          | 360           |
 
-## Question 9: In the first week after a customer joins the program (including their join date) they earn 2x points on all items, not just sushi — how many points do customer A and B have at the end of January?
+### Question 10: In the first week after a customer joins the program (including their join date) they earn 2x points on all items, not just sushi — how many points do customer A and B have at the end of January?
 ```sql
 WITH dates_CTE AS (
 	SELECT 
