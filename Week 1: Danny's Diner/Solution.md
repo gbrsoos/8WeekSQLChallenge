@@ -20,6 +20,8 @@ Danny has provided you with a sample of his overall customer data due to privacy
 #### Entity Relationship Diagram
 ![Week 1 - Entity Relationship Diagram](utils/Week1_dbdiagam.png)
 
+As visualized on the diagram and written above, the database consists of 3 tables: sales, members, and menu. The primary connecting variables are customer_id and product_id, these are going to play a crucial role in conducting the queries.
+
 ## Solution
 ### Step 1: Getting hold of the database from [DB-Fiddle](https://www.db-fiddle.com/f/2rM8RAnq7h5LLDTzZiRWcd/138)
 ```sql
