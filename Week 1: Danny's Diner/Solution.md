@@ -58,9 +58,8 @@ VALUES
   ('B', '2021-01-09');
 ```
 
+## Question 1: What is the total amount each customer spent at the restaurant?
 '''sql
--- 1. What is the total amount each customer spent at the restaurant?
-
 SELECT sales.customer_id, 
 	SUM(menu.price) AS total_spent
 FROM dannys_diner.sales
