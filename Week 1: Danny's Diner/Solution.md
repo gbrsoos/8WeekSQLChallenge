@@ -1,4 +1,4 @@
-DESCRIPTION HERE ABOUT THIS WEEK'S SETUP
+![8WeekSQLChallenge - Week1](xhttps://8weeksqlchallenge.com/images/case-study-designs/1.png)
 
 ## Step 1: Getting hold of the database from [DB-Fiddle](https://www.db-fiddle.com/f/2rM8RAnq7h5LLDTzZiRWcd/138)
 
