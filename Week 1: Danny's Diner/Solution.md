@@ -214,6 +214,27 @@ ORDER BY customer_id ASC;
 | 1| A	          | sushi         |
 | 1| B	          | sushi         |
 
+## Question 8: What is the total items and amount spent for each member before they became a member?
+```sql
+SELECT
+	sales.customer_id,
+	COUNT(sales.product_id) AS num_products,
+	SUM(menu.price) AS sum_sales
+FROM dannys_diner.sales
+INNER JOIN dannys_diner.menu
+	ON sales.product_id = menu.product_id
+INNER JOIN dannys_diner.members
+	ON sales.customer_id = members.customer_id
+	AND sales.order_date < members.join_date
+GROUP BY sales.customer_id
+ORDER BY customer_id ASC;
+```
+
+|  | customer_id  | num_products  |amount_spent |
+|--|--------------|---------------|-------------|
+| 1| A	          | 2             | 25  	|
+| 1| B	          | 3             | 40  	|
+
 
 
 
