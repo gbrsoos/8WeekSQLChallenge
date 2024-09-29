@@ -344,20 +344,20 @@ Recreate the following table output using the available data:
 
 ```sql
 SELECT 
-  sales.customer_id, 
-  sales.order_date,  
-  menu.product_name, 
-  menu.price,
-  CASE
-    WHEN members.join_date > sales.order_date THEN 'N'
-    WHEN members.join_date <= sales.order_date THEN 'Y'
-    ELSE 'N' END AS member_status
+	sales.customer_id,
+	sales.order_date,
+	menu.product_name,
+	menu.price,
+	CASE
+		WHEN members.join_date > sales.order_date THEN 'N'
+		WHEN members.join_date <= sales.order_date THEN 'Y'
+		ELSE 'N' END AS membership
 FROM dannys_diner.sales
-LEFT JOIN dannys_diner.members
-  ON sales.customer_id = members.customer_id
 INNER JOIN dannys_diner.menu
-  ON sales.product_id = menu.product_id
-ORDER BY members.customer_id, sales.order_date;
+	ON sales.product_id = menu.product_id
+LEFT JOIN dannys_diner.members
+	ON sales.customer_id = members.customer_id
+ORDER BY customer_id, order_date;
 ```
 
 | customer_id   | order_date   | product_name   |   price | member   |
@@ -381,4 +381,48 @@ ORDER BY members.customer_id, sales.order_date;
 ### Bonus 2: Rank All The Things
 Danny also requires further information about the ranking of customer products, but he purposely does not need the ranking for non-member purchases so he expects null ranking values for the records when customers are not yet part of the loyalty program
 
+```sql
+WITH base_CTE AS(
+	SELECT 
+		sales.customer_id,
+		sales.order_date,
+		menu.product_name,
+		menu.price,
+		CASE
+			WHEN members.join_date > sales.order_date THEN 'N'
+			WHEN members.join_date <= sales.order_date THEN 'Y'
+			ELSE 'N' END AS membership
+	FROM dannys_diner.sales
+	INNER JOIN dannys_diner.menu
+		ON sales.product_id = menu.product_id
+	LEFT JOIN dannys_diner.members
+		ON sales.customer_id = members.customer_id
+	ORDER BY customer_id, order_date
+)
+
+SELECT 
+	*,
+	CASE
+		WHEN membership = 'N' THEN NULL
+		ELSE DENSE_RANK() OVER (PARTITION BY customer_id, membership ORDER BY order_date) END AS ranking
+FROM base_CTE;
+```
+
+| customer_id   | order_date   | product_name   |   price | member   |   rank |
+|:--------------|:-------------|:---------------|--------:|:---------|-------:|
+| A             | 2021-01-01   | sushi          |      10 | N        |    nan |
+| A             | 2021-01-01   | curry          |      15 | N        |    nan |
+| A             | 2021-01-07   | curry          |      15 | Y        |      1 |
+| A             | 2021-01-10   | ramen          |      12 | Y        |      2 |
+| A             | 2021-01-11   | ramen          |      12 | Y        |      3 |
+| A             | 2021-01-11   | ramen          |      12 | Y        |      3 |
+| B             | 2021-01-01   | curry          |      15 | N        |    nan |
+| B             | 2021-01-02   | curry          |      15 | N        |    nan |
+| B             | 2021-01-04   | sushi          |      10 | N        |    nan |
+| B             | 2021-01-11   | sushi          |      10 | Y        |      1 |
+| B             | 2021-01-16   | ramen          |      12 | Y        |      2 |
+| B             | 2021-02-01   | ramen          |      12 | Y        |      3 |
+| C             | 2021-01-01   | ramen          |      12 | N        |    nan |
+| C             | 2021-01-01   | ramen          |      12 | N        |    nan |
+| C             | 2021-01-07   | ramen          |      12 | N        |    nan |
 
