@@ -320,5 +320,65 @@ ORDER BY customer_id ASC;
 | 1| A	          | 1020          |
 | 2| B	          | 320           |
 
+### Bonus 1: Join All The Things
+The following questions are related creating basic data tables that Danny and his team can use to quickly derive insights without needing to join the underlying tables using SQL.
+
+Recreate the following table output using the available data:
+| customer_id   | order_date   | product_name   |   price | member   |
+|:--------------|:-------------|:---------------|--------:|:---------|
+| A             | 2021-01-01   | curry          |      15 | N        |
+| A             | 2021-01-01   | sushi          |      10 | N        |
+| A             | 2021-01-07   | curry          |      15 | Y        |
+| A             | 2021-01-10   | ramen          |      12 | Y        |
+| A             | 2021-01-11   | ramen          |      12 | Y        |
+| A             | 2021-01-11   | ramen          |      12 | Y        |
+| B             | 2021-01-01   | curry          |      15 | N        |
+| B             | 2021-01-02   | curry          |      15 | N        |
+| B             | 2021-01-04   | sushi          |      10 | N        |
+| B             | 2021-01-11   | sushi          |      10 | Y        |
+| B             | 2021-01-16   | ramen          |      12 | Y        |
+| B             | 2021-02-01   | ramen          |      12 | Y        |
+| C             | 2021-01-01   | ramen          |      12 | N        |
+| C             | 2021-01-01   | ramen          |      12 | N        |
+| C             | 2021-01-07   | ramen          |      12 | N        |
+
+```sql
+SELECT 
+  sales.customer_id, 
+  sales.order_date,  
+  menu.product_name, 
+  menu.price,
+  CASE
+    WHEN members.join_date > sales.order_date THEN 'N'
+    WHEN members.join_date <= sales.order_date THEN 'Y'
+    ELSE 'N' END AS member_status
+FROM dannys_diner.sales
+LEFT JOIN dannys_diner.members
+  ON sales.customer_id = members.customer_id
+INNER JOIN dannys_diner.menu
+  ON sales.product_id = menu.product_id
+ORDER BY members.customer_id, sales.order_date;
+```
+
+| customer_id   | order_date   | product_name   |   price | member   |
+|:--------------|:-------------|:---------------|--------:|:---------|
+| A             | 2021-01-01   | curry          |      15 | N        |
+| A             | 2021-01-01   | sushi          |      10 | N        |
+| A             | 2021-01-07   | curry          |      15 | Y        |
+| A             | 2021-01-10   | ramen          |      12 | Y        |
+| A             | 2021-01-11   | ramen          |      12 | Y        |
+| A             | 2021-01-11   | ramen          |      12 | Y        |
+| B             | 2021-01-01   | curry          |      15 | N        |
+| B             | 2021-01-02   | curry          |      15 | N        |
+| B             | 2021-01-04   | sushi          |      10 | N        |
+| B             | 2021-01-11   | sushi          |      10 | Y        |
+| B             | 2021-01-16   | ramen          |      12 | Y        |
+| B             | 2021-02-01   | ramen          |      12 | Y        |
+| C             | 2021-01-01   | ramen          |      12 | N        |
+| C             | 2021-01-01   | ramen          |      12 | N        |
+| C             | 2021-01-07   | ramen          |      12 | N        |
+
+### Bonus 2: Rank All The Things
+Danny also requires further information about the ranking of customer products, but he purposely does not need the ranking for non-member purchases so he expects null ranking values for the records when customers are not yet part of the loyalty program
 
 
