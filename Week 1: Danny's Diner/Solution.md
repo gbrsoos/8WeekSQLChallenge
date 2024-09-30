@@ -1,6 +1,3 @@
-# 8 Week SQL Challenge by Danny Ma
-The goal of the 8 Week SQL Challenge is to cover all the main use cases of the SQL domain in a weekly breakdown. Besides practice, I find it particularly good for learning purposes. This is why I decided to complete this challenge and add the results to my portfolio.
-
 ## Week 1 - Danny's Diner
 ![8WeekSQLChallenge - Week1](https://8weeksqlchallenge.com/images/case-study-designs/1.png)
 
