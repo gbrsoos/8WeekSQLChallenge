@@ -78,6 +78,8 @@ VALUES
 ```
 
 ### Question 1: What is the total amount each customer spent at the restaurant?
+To answer this question, `customer_id` and `price` will both be needed. To tackle this, I used `INNER_JOIN` (but casual `JOIN` also does the trick in this case) on the `product_id` column to merge `dannys_diner.sales` and `dannys_diner.menu`, since the two columns of need are present in these two tables. After this is done, the `SUM()` of the prices was calculated to get the total spending, and the output was grouped by the `customer_id`.
+
 ```sql
 SELECT sales.customer_id, 
 	SUM(menu.price) AS total_spent
@@ -95,6 +97,8 @@ ORDER BY total_spent ASC;
 | 3| A            | 76            |
 
 ### Question 2: How many days has each customer visited the restaurant?
+This question can be answered in a simple way. No `JOIN` is needed, since all the required information is present in the `dannys_diner.sales` table. All I had to do is to count the order dates for each `customer_id`, and then use `GROUP BY`.
+
 ```sql
 SELECT customer_id, 
 	COUNT(DISTINCT order_date) 
@@ -109,6 +113,8 @@ GROUP BY customer_id;
 | 3| C            | 2             |
 
 ### Question 3: What was the first item from the menu purchased by each customer?
+This is the first question where a Casual Table Expression (CTE) is required. We need to create a temporary table including the `customer_id`, the `sales_date`, the `product_name`, and an additional column that calculates the 'rank' of each item purchased by each customer. To create this column, `DENSE_RANK()` was used, which gives a unique number for the unique values (starting from 1) without leaving a gap in the numbering. `PARTITION BY` is responsible for separating the ranking between each `customer_id`, so the ranking is separate, and I use `ORDER BY sales.order_date` to take the order with the earliest date as 1. After this, I create the output by selecting `customer_id`, `product_name` from the CTE and limit it to only show instances where the rank is 1. The reason why A is present in the output two times is because they ordered both curry and sushi in their first order.
+
 ```sql
 WITH merged_purchases AS (
 SELECT sales.customer_id,
