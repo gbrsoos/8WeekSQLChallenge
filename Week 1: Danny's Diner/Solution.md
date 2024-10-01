@@ -188,6 +188,8 @@ ORDER BY customer_id
 | 5| C		  | ramen         | 3      |
 
 ### Question 6: Which item was purchased first by the customer after they became a member?
+In the `join_date` CTE, after joining `dannys_diner.sales` and `dannys_diner.members`, I used ROW_NUMBER() to give a unique `row_number` to each purchase by each `customer_id` and filtered the purchases to only query where the `order_date` is bigger than the `join_date`. In the outer query afterwards, I only filtered to show the cases where the `row_number = 1`, so the first purchase after becoming a member. C is not present here, since they never became a member.
+
 ```sql
 WITH join_date AS(
 	SELECT
@@ -216,6 +218,8 @@ ORDER BY customer_id ASC;
 | 2| B	          | sushi         |
 
 ### Question 7: Which item was purchased just before the customer became a member?
+This solution is pretty similar to Question 6, but with a little twist. Here in the `ROW_NUMBER()` I sorted the `order_date` in descending order to capture the last purchase instead of the first. After this I used `sales.order_date < member.join_date` to capture all purchases that happenned before becoming a member. The outer query is responsible for the same tasks as in Question 6.
+
 ```sql
 WITH premember_purchases AS (
 	SELECT 
@@ -244,6 +248,8 @@ ORDER BY customer_id ASC;
 | 2| B	          | sushi         |
 
 ### Question 8: What is the total items and amount spent for each member before they became a member?
+For this a double `INNER JOIN` is required, since data is needed from all three tables. Additionally, when joining `dannys_diner.members` and `dannys_diner.sales`, I filtered the purchases by `sales.order_date < members.join_date` to only see purchases before membership. To see the number of items purchased, I counted the product_ids, and used `SUM(menu.price)` to have the aggregated expense. A bought 2 items before becoming a member with a total price of 25, and B purchased 3 items that are worth 40.
+
 ```sql
 SELECT
 	sales.customer_id,
@@ -265,6 +271,8 @@ ORDER BY customer_id ASC;
 | 2| B	          | 3             | 40  	|
 
 ### Question 9: If each $1 spent equates to 10 points and sushi has a 2x points multiplier — how many points would each customer have?
+This is the first question where `CASE` needs to be incorporated. Since the `product_id` of `sushi` is `1`, the number of points given needs to be doubled if `product_id = 1`. The points are stored in a CTE, and the outer query is responsible for aggregating the points for each `customer_id`.
+
 ```sql
 WITH points_CTE AS(
 	SELECT 
@@ -292,6 +300,9 @@ ORDER BY customer_id ASC;
 | 3| C	          | 360           |
 
 ### Question 10: In the first week after a customer joins the program (including their join date) they earn 2x points on all items, not just sushi — how many points do customer A and B have at the end of January?
+Here, I had to play with the dates as well. When creating the CTE `dates_CTE`, I created a new column `closing_day`, which is a date 6 days later to the `join_date` (this is because the program lasts for one week INCLUDING THE JOIN DATE). I created another column, which represents the end of January, since that is the end of the calculation window. To do so, I used a generalized method which is not limited down to this special usecase. Here I use `DATE_TRUNC('month', '2021-01-31'::DATE)` which truncates the given date back to the first day of the month, the with `+ interval '1 month'` I add an extra month and with `- interval '1 day'` I subtract a day which ends in the last day of January. With this approach, the calculation can be done for all dates dynamically.
+In the outer query, `CASE` is used again to double the points for `sushi`, and to double the points for each purchase if the order happenned between the `join_date` and the last day of the program `closing_day`.
+
 ```sql
 WITH dates_CTE AS (
 	SELECT 
