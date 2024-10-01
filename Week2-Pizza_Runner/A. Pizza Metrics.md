@@ -237,29 +237,45 @@ FROM pizza_runner.customer_orders;
 |--|---------------|
 | 1| 10            |
 
-### Question 3: 
-
-
-```sql
-
-```
-
-|  | -  | -  	  |
-|--|--------------|---------------|
-| 1| -            | -         |
-| 2| -            | -         |
-| 3| -            | -         |
-| 4| -		  | -         |
-
-### Question 4: 
+### Question 3: How many successful orders were delivered by each runner?
+The key to correctly answer this question is to use the filter `WHERE distance != 0`. This excludes the two cancellations that are present in the dataset.
 
 ```sql
-
+SELECT 
+	runner_id,
+	COUNT(order_id) AS successful_orders
+FROM pizza_runner.runner_orders
+WHERE distance != 0
+GROUP BY runner_id
+ORDER BY runner_id ASC;
 ```
 
-|  | - | -  	  |
+|  | runner_id | successful_orders  |
 |--|--------------|---------------|
-| 1| -        | -             |
+| 1| 1            | 4         |
+| 2| 2            | 3         |
+| 3| 3            | 1         |
+
+
+### Question 4: How many of each type of pizza was delivered?
+
+```sql
+SELECT 
+	pizza_name,
+	COUNT(co.order_id) AS number_delivered
+FROM pizza_runner.customer_orders AS co
+JOIN pizza_runner.runner_orders AS ro
+	ON co.order_id = ro.order_id
+JOIN pizza_runner.pizza_names AS pn
+	ON co.pizza_id = pn.pizza_id
+WHERE ro.distance != 0
+GROUP BY pizza_name
+```
+
+|  | pizza_name | number_delivered  |
+|--|--------------|---------------|
+| 1| Meatlovers        | 9             |
+| 2| Vegetarian       | 3             |
 
 ### Question 5: 
 
