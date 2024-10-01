@@ -258,6 +258,7 @@ ORDER BY runner_id ASC;
 
 
 ### Question 4: How many of each type of pizza was delivered?
+To properly answer this, data is required from three different sources: `customer_orders`, `runner_orders`, and `pizza_names`. After the two `JOIN`s, I again filtered the two cancellations out with the same methodology.
 
 ```sql
 SELECT 
@@ -277,55 +278,104 @@ GROUP BY pizza_name
 | 1| Meatlovers        | 9             |
 | 2| Vegetarian       | 3             |
 
-### Question 5: 
+### Question 5: How many Vegetarian and Meatlovers were ordered by each customer? 
+Compared to the previous answer, here there is no need for filtering, since the question is about the order, not the delivery. I just simply counted the `pizza_name` for each customer and displayed it in a separate `number_ordered` column.
 
 ```sql
-
+SELECT 
+	customer_id,
+	pizza_name,
+	COUNT(pn.pizza_name) AS number_ordered
+FROM pizza_runner.customer_orders AS co
+JOIN pizza_runner.pizza_names AS pn
+	ON co.pizza_id = pn.pizza_id
+GROUP BY customer_id, pizza_name
+ORDER BY customer_id ASC;
 ```
 
-|  | -  | -  | -  |
+|  | customer_id  | pizza_name  | number_ordered  |
 |--|--------------|---------------|--------|
-| 1| -            | -         | -      |
-| 2| -            | -         | -      | 
-| 3| -            | -         | -      |
-| 4| -		  | -         | -      |
-| 5| -		  | -         | -      |
+| 1| 101            | Meatlovers         | 2      |
+| 2| 101          | Vegetarian         | 1      | 
+| 3| 102          | Meatlovers         | 2      |
+| 4| 102	  | Vegetarian         | 1      |
+| 5| 103	  | Meatlovers      | 3      |
+| 6| 103          | Vegetarian         | 1      |
+| 7| 104	  | Meatlovers  | 3      |
+| 8| 105	  | Vegetarian         | 1      |
 
-### Question 6: 
-
-
-```sql
-
-```
-
-|  | -  | -  |
-|--|--------------|---------------|
-| 1| -	          | -         |
-| 2| -	          | -         |
-
-### Question 7: 
-
+### Question 6: What was the maximum number of pizzas delivered in a single order?
+This is this week's first question which requires a CTE. In the CTE, I filter the cancellations as earlier and count the number of pizzas ordered for each `order_id`. After this, in the outer query I only display the biggest number in the `pizza_ordered` column.
 
 ```sql
+WITH pizza_count_cte AS(
+	SELECT 
+		co.order_id,
+		COUNT(co.pizza_id) AS pizza_ordered
+	FROM pizza_runner.customer_orders AS co
+	JOIN pizza_runner.runner_orders AS ro
+		ON co.order_id = ro.order_id
+	WHERE distance != 0
+	GROUP BY co.order_id
+)
 
+SELECT 
+	MAX(pizza_ordered) AS max_pizza_number
+FROM pizza_count_cte
 ```
 
-|  |   |   |
-|--|--------------|---------------|
-| 1| 	          |          |
-| 2| 	          |          |
+|  | max_pizza_number  |
+|--|--------------|
+| 1| 3	          |
 
-### Question 8: 
 
+### Question 7: For each customer, how many delivered pizzas had at least 1 change and how many had no changes?
+Here again, the same `JOIN` & `WHERE distance != 0` combination was used to leave us with the 12 successfully delivered orders. After this, I created a `CASE` statement for both the cases where there is no change and where there is at least one change (either in `exclusions` or `extras`). Since in the beginning these columns have been transformed to `TEXT` from `VARCHAR4`, I needed to use `COALESCE` to display the 0s as actual zeros instead of `[null]`.
 
 ```sql
-
+SELECT
+	customer_id,
+	COALESCE(SUM(CASE
+		WHEN exclusions IS NULL AND extras IS NULL THEN 1 END), 0) AS no_change,
+	COALESCE(SUM(CASE
+		WHEN exclusions IS NOT NULL OR extras IS NOT NULL THEN 1 END), 0) AS change
+FROM pizza_runner.customer_orders AS co
+JOIN pizza_runner.runner_orders AS ro
+	ON co.order_id = ro.order_id
+WHERE distance != 0
+GROUP BY customer_id
+ORDER BY customer_id ASC;
 ```
 
-|  | -  | -  |- |
-|--|--------------|---------------|-------------|
-| 1| -	          | -             | -  	|
-| 2| -	          | -             | -  	|
+|  | customer_id  | no_change  | change |
+|--|--------------|---------------|------|
+| 1| 101	          | 2         | 0   |
+| 2| 102	          | 3         |  0  |
+| 3| 103	          | 0         |   3 |
+| 4| 104	          | 1         |  2  |
+| 5| 105	          | 0         |  1  |
+
+### Question 8: How many pizzas were delivered that had both exclusions and extras?
+The query of the last question is the basis for this one. In the `SELECT` clause, there is only one `CASE` statement covering the delivered orders with two changes. After the `GROUP BY` clause, there is a `HAVING` clause responsible for the actual filtering, which is essentially the first statement repeated.
+
+```sql
+SELECT
+	COALESCE(SUM(CASE
+		WHEN exclusions IS NOT NULL AND extras IS NOT NULL THEN 1 END), 0) AS two_changes
+FROM pizza_runner.customer_orders AS co
+JOIN pizza_runner.runner_orders AS ro
+	ON co.order_id = ro.order_id
+WHERE distance != 0 
+GROUP BY customer_id
+HAVING COALESCE(SUM(CASE
+		WHEN exclusions IS NOT NULL AND extras IS NOT NULL THEN 1 END), 0) = 1
+ORDER BY customer_id ASC;
+```
+
+|  | two_changes  |
+|--|--------------|
+| 1| 1	          |
+
 
 ### Question 9: 
 
