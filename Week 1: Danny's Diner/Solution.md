@@ -141,6 +141,8 @@ GROUP BY customer_id, product_name;
 | 4| C		  | ramen         |
 
 ### Question 4: What is the most purchased item on the menu and how many times was it purchased by all customers?
+To have this counted, I first used `INNER JOIN` to have the `sales` and the `menu` table joined, and performed `COUNT` to see how many times each product occurs. After the purchase numbers have been obtained, the rows have been sorted in descending order based on the occurence (`times_purchased`), a displayed only the top row with `LIMIT 1`.
+
 ```sql
 SELECT product_name, COUNT(product_name) AS times_purchased FROM dannys_diner.menu
 INNER JOIN dannys_diner.sales
@@ -150,17 +152,19 @@ ORDER BY times_purchased DESC
 LIMIT 1;
 ```
 
-|  | product_name | purchased  	  |
+|  | product_name | times_purchased  	  |
 |--|--------------|---------------|
 | 1| ramen        | 8             |
 
 ### Question 5: Which item was the most popular for each customer?
+To see the most popular items for each customer, a CTE is used once again. After using `INNER JOIN` on the `menu` and `sales` tables, I gathered the `customer_id`, the `product_name` and the number of times each product has been purchased by each customer (`COUNT(menu.product_id)`). Then obtained the `DENSE_RANK()` of each product based on how many times they were bought. Thus, in the outer query I only had to filter this `rank` to one to see the most liked products for each customer. 
+
 ```sql
 WITH most_popular AS (
 	SELECT sales.customer_id,
 			menu.product_name,
 			COUNT(menu.product_id),
-			DENSE_RANK() OVER (PARTITION BY sales.customer_id ORDER BY COUNT(sales.customer_id) DESC) as purchase_rank
+			DENSE_RANK() OVER (PARTITION BY sales.customer_id ORDER BY COUNT(menu.product_name) DESC) as purchase_rank
 	FROM dannys_diner.sales
 	INNER JOIN dannys_diner.menu
 		ON sales.product_id = menu.product_id
