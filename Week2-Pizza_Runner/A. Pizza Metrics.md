@@ -18,6 +18,10 @@ As visualized on the diagram and written above, the database consists of 6 table
 
 ## Solution
 ### Step 1: Getting hold of the database from [DB-Fiddle](https://www.db-fiddle.com/f/2rM8RAnq7h5LLDTzZiRWcd/138)
+
+<details>
+  <summary>Click to expand SQL script</summary>
+
 ```sql
 CREATE SCHEMA pizza_runner;
 SET search_path = pizza_runner;
@@ -135,6 +139,9 @@ VALUES
   (11, 'Tomatoes'),
   (12, 'Tomato Sauce');
 ```
+</details>
+
+
 
 Before diving into the questions, Danny gave some hints about 2 tables, `customer_orders` and `runner_orders`. After a quick query, it became clear that there are multiple columns that are not in the correct data type and there are `NULL` values that are stored as strings. First, let us tackle these issues.
 
