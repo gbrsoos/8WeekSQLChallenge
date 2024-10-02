@@ -424,5 +424,6 @@ ORDER BY day_of_week ASC;
 | 1| Thursday	          | 3          |
 | 2| Wednesday	          | 5           |
 
+Click [here](https://github.com/gbrsoos/8WeekSQLChallenge/blob/main/Week2-Pizza_Runner/B.%20Runner%20and%20Customer%20Experience.md) to continue with B. Runner and Customer Experience
 
 
