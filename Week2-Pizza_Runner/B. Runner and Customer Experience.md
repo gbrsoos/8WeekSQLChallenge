@@ -375,4 +375,4 @@ ORDER BY runner_id;
 | 2| 2	          | 75       |
 | 3| 3	          | 50        |
 
-Click [here](https://github.com/gbrsoos/8WeekSQLChallenge/blob/main/Week2-Pizza_Runner/B.%20Runner%20and%20Customer%20Experience.md) to continue with B. Runner and Customer Experience
+Click [here](https://github.com/gbrsoos/8WeekSQLChallenge/blob/main/Week2-Pizza_Runner/C.%20CIngredient%20Optimisation.md) to continue with C. Ingredient Optimisation.
