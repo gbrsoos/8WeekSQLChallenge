@@ -1,4 +1,4 @@
-## Week 2/A - Customer and Runner Experience
+## Week 2/B - Customer and Runner Experience
 ![8WeekSQLChallenge - Week2](https://8weeksqlchallenge.com/images/case-study-designs/2.png)
 
 ### Introduction
@@ -220,91 +220,159 @@ USING duration::FLOAT
 After running these queries, all columns have been cleaned, so the solving process can be started.
 </details>
 
-### Question 1: 
+### Task 0: Altering `search_path`
+I am going to be blunt here, I got bored writing pizza_runner all over and over again, so I just alter the `search_path` for the actual session, which will spare me a lot of time and unnecessary effort. So even though I am not going to refer to pizza_runner again, I am going to continue using the same schema as I was thus far.
 
 ```sql
+SET search_path TO pizza_runner;
+```
+
+### Question 1: How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)
+The first question of the second part starts off strong. Since PostgreSQL follows ISO8601 when it comes to dates which defines the first week of the year as the week that contains the first Thursday of the year. To tackle this, I figured the method `FLOOR((registration_date - DATE '2021-01-01') / 7) + 1` which takes the difference between the actual `registration_date` and the first day of the year, divides it by 7 to convert it to weeks, uses the `FLOOR()` function which takes the largest smaller or equal integer, and adds +1 for the proper numbering. Let us take an example, `2021-01-06`. The difference is 5 days, which is 5/7 after the division. `FLOOR()` then returns 0, since that is the closest smaller integer, and adds 1. Thus `2021-01-06` is the last day of week `1`, since 7/7 = 1, `FLOOR(1) = 1` and 1+1 = 2.
+
+```sql
+SELECT 
+	FLOOR((registration_date - DATE '2021-01-01') / 7) + 1 AS week_number,
+	COUNT(runner_id) AS runners
+FROM runners
+GROUP BY FLOOR((registration_date - DATE '2021-01-01') / 7) + 1
+ORDER BY week_number ASC;
 
 ```
 
-|  | - |
-|--|--------------|
-| -| -           |
+|  | week_number | runners |
+|--|--------------|---------|
+| -| 1           | 2         |
+| -| 2           |  1        |
+| -| 3           |   1       |
 
-### Question 2: 
+### Question 2: What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?
+Seems like this part is heavily going to focus on date and/or distance-related measures. Here, I joined the well-known `runner_orders` and `customer_orders` tables to obtain both the `pickup_time` and the `order_time`. After that, I performed a series of functions: after subtracting the order time from the pickup time (to get the difference between the two), I used `EXTRACT(EPOCH FROM...)` To capture the entire difference in seconds, and the divided it by 60 to get the value in minutes. `AVG()` is responsible for calculating the mean and `ROUND(x, 2)` limits the number of decimals.
 
 ```sql
-
+SELECT
+    ROUND(AVG(EXTRACT(EPOCH FROM (pickup_time::TIMESTAMP - order_time) / 60)), 2) AS minutes_to_pickup
+FROM runner_orders AS ro
+JOIN customer_orders AS co
+	ON ro.order_id = co.order_id;
 ```
 
-|  | - |
+|  | minutes_to_pickup |
 |--|---------------|
-| 1| -            |
+| 1| 18.59            |
 
-### Question 3: 
+### Question 3: Is there any relationship between the number of pizzas and how long the order takes to prepare?
+To answer this, I broke the solution down into two steps. In the first one, I created a CTE which includes the number of pizzas ordered for each order and the time it has taken to prepare the order. In the outer query, I average these preparation times for each unique number of ordered pizzas. Regarding the relationship, I created an additional column calculating the time/pizza ratio. Here, it is clear that preparing one pizza takes significantly more time if there is only one pizza in the order than in the cases with more pizzas included. This might be due to the human factor, since people tend to think they have more time due to the order not being so stacked.
 
 ```sql
+WITH per_order_CTE AS(
+	SELECT
+		COUNT(pizza_id) AS pizza_num,
+		ROUND(EXTRACT(EPOCH FROM (pickup_time::TIMESTAMP - order_time) / 60), 2) AS minutes_to_pickup
+	FROM customer_orders AS co
+	JOIN runner_orders AS ro
+		ON co.order_id = ro.order_id
+	WHERE pickup_time IS NOT NULL
+	GROUP BY ro.pickup_time, co.order_time
+)
 
+SELECT 
+	pizza_num,
+	ROUND(AVG(minutes_to_pickup), 2),
+	ROUND(AVG(minutes_to_pickup) / pizza_num, 2) AS time_per_pizza
+FROM per_order_CTE
+GROUP BY pizza_num
+ORDER BY pizza_num;
 ```
 
-|  | - | -  |
+|  | pizza_num | avg_preparation_time  | time_per_pizza|
+|--|--------------|---------------|------------------|
+| 1| 1            | 12.36         | 12.36         |
+| 2| 2           | 18.38         | 9.19         |
+| 3| 3           | 29.28         | 9.76          |
+
+### Question 4: What was the average distance travelled for each customer?
+The only detail worth mentioning in this query is that originally the distance column's data type is `DOUBLE PRECISION`, so I had to temporarily transform it to `NUMERIC`, so that the `ROUND()` function can handle it properly.
+
+
+```sql
+SELECT
+	customer_id,
+	ROUND(AVG(distance)::NUMERIC ,2) AS avg_distance
+FROM customer_orders AS co
+JOIN runner_orders AS ro
+	ON co.order_id = ro.order_id
+WHERE pickup_time IS NOT NULL
+GROUP BY customer_id
+ORDER BY customer_id;
+```
+
+|  | customer_id | avg_distance  |
 |--|--------------|---------------|
-| 1| -            | -         |
-| 2| -           | -         |
-| 3| -           | -         |
+| 1| 101        | 20.00             |
+| 2| 102       | 16.73             |
+| 3| 103      | 23.40            |
+| 4| 104     | 10.00             |
+| 5| 105      | 25.00             |
 
+### Question 5: What was the difference between the longest and shortest delivery times for all orders?
 
-### Question 4:
 
 ```sql
-
+SELECT
+	MAX(duration::NUMERIC) - MIN(duration::NUMERIC) AS time_difference
+FROM runner_orders
+WHERE pickup_time IS NOT NULL;
 ```
 
-|  | - | -  |
-|--|--------------|---------------|
-| 1| -        | -             |
-| 2| -       | -             |
+|  | time_difference  |
+|--|-------------|
+| 1| 30           |
 
-### Question 5: 
+### Question 6: What was the average speed for each runner for each delivery and do you notice any trend for these values?
+To calculate the average speed, I divided the `distance` and the `duration` columns, which leaves me speed in km/m. To transfer this to km/h, the values need to be multiplied by 60. Regarding the trends, the fluctuation of average speed for the runner with `runner_id = 2` is suspiciously big, since the difference between `35.40` and `93.60` is almost 300%.
 
 ```sql
-
+SELECT
+	runner_id,
+	ro.order_id,
+	ROUND((distance::NUMERIC / duration::NUMERIC), 2) * 60 AS avg_speed
+FROM customer_orders AS co
+JOIN runner_orders AS ro
+	ON co.order_id = ro.order_id
+WHERE pickup_time IS NOT NULL
+GROUP BY runner_id, ro.order_id, ro.distance, ro.duration
+ORDER BY runner_id, order_id;
 ```
 
-|  | -  | -  | -  |
-|--|-------------|-----------|--------|
-| 1| -           | -         | -      |
-| 2| -           | -         | -      | 
-| 3| -           | -         | -      |
-| 4| -	         | -         | -      |
-| 5| -	         | -         | -      |
-| 6| -           | -         | -      |
-| 7| -	         | -         | -      |
-| 8| -	         | -         | -      |
+|  | runner_id  | order_id | avg_speed  |
+|--|--------------|-------|-------|
+| 1| 1	          | 1  | 37.80  |
+| 2| 1	          | 2 | 44.40  |
+| 3| 1	          | 3 |  40.20 |
+| 4| 1	          | 10 |  60.00 |
+| 5| 2	          | 4 | 35.40  |
+| 6| 2	          | 7 | 60.00  |
+| 7| 2	          | 8 |  93.60 |
+| 8| 3	          | 5 |  40.20 |
 
-### Question 6: 
+### Question 7: What is the successful delivery percentage for each runner?
+For the `success_rate` calculation I created a `CASE` statement, where 1 represents a successful delivery and 0 represents the unsuccessful ones. I multiplied the values by 100 and divided the result with all the orders a runner had (`COUNT(runner_id`).
 
 ```sql
-
+SELECT
+	runner_id,
+	(100 * SUM(CASE 
+			WHEN cancellation IS NULL THEN 1 ELSE 0 END) / COUNT(runner_id)) AS succes_rate
+FROM runner_orders
+GROUP BY runner_id
+ORDER BY runner_id;
 ```
 
-|  | -  |
-|--|--------------|
-| 1| -	          |
-
-
-### Question 7: 
-
-```sql
-
-```
-
-|  | -  | -  | - |
-|--|--------------|---------------|------|
-| 1| -	          | -         | -   |
-| 2| -	          | -         |  -  |
-| 3| -	          | -         |   - |
-| 4| -	          | -         |  -  |
-| 5| -	          | -         |  -  |
-
+|  | runner_id  | success_rate  |
+|--|--------------|-----------|
+| 1| 1	          | 100         |
+| 2| 2	          | 75       |
+| 3| 3	          | 50        |
 
 Click [here](https://github.com/gbrsoos/8WeekSQLChallenge/blob/main/Week2-Pizza_Runner/B.%20Runner%20and%20Customer%20Experience.md) to continue with B. Runner and Customer Experience
