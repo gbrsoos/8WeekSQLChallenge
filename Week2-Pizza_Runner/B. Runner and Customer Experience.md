@@ -294,7 +294,6 @@ ORDER BY pizza_num;
 ### Question 4: What was the average distance travelled for each customer?
 The only detail worth mentioning in this query is that originally the distance column's data type is `DOUBLE PRECISION`, so I had to temporarily transform it to `NUMERIC`, so that the `ROUND()` function can handle it properly.
 
-
 ```sql
 SELECT
 	customer_id,
