@@ -384,30 +384,45 @@ ORDER BY customer_id ASC;
 | 1| 1	          |
 
 
-### Question 9: 
-
-
-```sql
-
-```
-
-|  | -  | -    |
-|--|--------------|---------------|
-| 1| -	          | -           |
-| 2| -	          | -           |
-| 3| -	          | -           |
-
-### Question 10: 
-
+### Question 9: What was the total volume of pizzas ordered for each hour of the day?
+To extract the hours for each `order_time`, I used `EXTRACT(HOUR FROM date_time)`, and paired each hour with the number pizzas delivered.
 
 ```sql
-
+SELECT 
+	EXTRACT(HOUR FROM order_time) AS hour_of_day,
+	COUNT(pizza_id) AS pizzas_delivered
+FROM pizza_runner.customer_orders
+GROUP BY EXTRACT(HOUR FROM order_time)
+ORDER BY hour_of_day ASC;
 ```
 
-|  | -  | -  |
+|  | hour_of_day  | pizzas_delivered    |
 |--|--------------|---------------|
-| 1| -	          | -          |
-| 2| -	          | -           |
+| 1| 11	          | 1           |
+| 2| 13          | 3           |
+| 3| 18	          | 3           |
+| 4| 19	          | 1           |
+| 5| 21	          | 3           |
+| 6| 23	          | 3           |
+
+### Question 10: What was the volume of orders for each day of the week?
+Here I only queried the day of the week for each date in `order_time`, and grouped the volumes based on the newly created `day_of_week`
+
+```sql
+SELECT 
+	TO_CHAR(order_time::DATE, 'Day') AS day_of_week,
+	COUNT(pizza_id) AS volume
+	FROM pizza_runner.customer_orders
+GROUP BY TO_CHAR(order_time::DATE, 'Day')
+ORDER BY day_of_week ASC;
+```
+
+|  | day_of_week  | volume  |
+|--|--------------|---------------|
+| 1| Friday	          | 1          |
+| 2| Saturday	          | 5           |
+| 1| Thursday	          | 3          |
+| 2| Wednesday	          | 5           |
 
 
 
