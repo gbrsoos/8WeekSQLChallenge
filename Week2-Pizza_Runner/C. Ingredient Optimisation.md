@@ -227,93 +227,386 @@ I am going to be blunt here, I got bored writing pizza_runner all over and over 
 SET search_path TO pizza_runner;
 ```
 
-### Question 1: 
-
+### Question 1: What are the standard ingredients for each pizza?
+At question one, I had to apply multiple new functions that have not been used before in the challenge. What I first did here was to incorporate `string_to_array(pr.toppings, ', ')::INT[]`, which transforms the original format of topping lists `1, 2 ,3 ,4, ...` to arrays `{1, 2, 3, 4, ...}`. This could be used in the `ANY()` function to be the subject of the joining. The first `JOIN` matches the ingredient ids in `pizza_toppings` with the freshly created arrays. Then `STRING_AGG(pt.topping_name, ', ')` is responsible for concatenating the initial ingredients to string (e.g. `Mushroom, Pepperoni, Tomato`).
 
 ```sql
-
-
+SELECT
+    pn.pizza_name,
+    STRING_AGG(pt.topping_name, ', ') AS standard_ingredients
+FROM pizza_recipes AS pr
+JOIN pizza_toppings AS pt
+	ON pt.topping_id = ANY(string_to_array(pr.toppings, ', ')::INT[])
+JOIN pizza_names AS pn
+	ON pr.pizza_id = pn.pizza_id
+GROUP BY pizza_name;
 ```
 
-|  | - | - |
+|  | pizza_name | standard_ingredients |
 |--|--------------|---------|
-| -| -           | -         |
-| -| -           |  -        |
-| -| -           |   -       |
+| 1| Meatlovers           | Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami         |
+| 2| Vegetarian           | Cheese, Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce        |
 
-### Question 2: 
-
-
-```sql
-
-```
-
-|  | - |
-|--|---------------|
-| 1| -            |
-
-### Question 3: 
-
+### Question 2: What was the most commonly added extra?
+In this question, the same `JOIN` approach is used as for Question 1, but without using `string_to_array`, since I previously did the due diligence regarding the data cleaning & data type conversion. All I did was counting the times each `topping_id` appeared and paired the with their respective names.
 
 ```sql
-
+SELECT 
+	pt.topping_name,
+	COUNT(topping_id) AS times_added
+FROM customer_orders AS co
+JOIN pizza_toppings AS pt
+    ON pt.topping_id = ANY(co.extras::INT[])
+WHERE co.extras IS NOT NULL
+GROUP BY topping_name
+ORDER BY COUNT(topping_id) DESC;
 ```
 
-|  | - | -  | -|
-|--|--------------|---------------|------------------|
-| 1| -            | -         | -         |
-| 2| -           | -         | -         |
-| 3| -           | -         | -          |
+|  | topping_name | times_added |
+|--|---------------|-----|
+| 1| Bacon            |   4     |
+| 2| Chicken            |    1    |
+| 3| Cheese            |     1   |
 
-### Question 4: 
-
+### Question 3: What was the most common exclusion?
+The logic is the same as for the previous question, but `extras` is switched out to `exclusions`.
 
 ```sql
-
+SELECT 
+	pt.topping_name,
+	COUNT(topping_id) AS times_excluded
+FROM customer_orders AS co
+JOIN pizza_toppings AS pt
+    ON pt.topping_id = ANY(co.exclusions::INT[])
+WHERE co.exclusions IS NOT NULL
+GROUP BY topping_name
+ORDER BY COUNT(topping_id) DESC;
 ```
 
-|  | - | -  |
+|  | topping_name | times_excluded  |
 |--|--------------|---------------|
-| 1| -        | -            |
-| 2| -       | -            |
-| 3| -      |  -          |
-| 4| -     |  -           |
-| 5| -      | -            |
+| 1| Cheese           | 4        |
+| 2| Mushrooms           | 1         |
+| 3| BBQ Sauce           | 1         |
 
-### Question 5: 
-
-```sql
-
-```
-
-|  | -  |
-|--|-------------|
-| 1| -           |
-
-### Question 6: 
+### Question 4: Generate an order item for each record in the `customers_orders` table in the format of one of the following:
+### - `Meat Lovers`
+### - `Meat Lovers - Exclude Beef`
+### - `Meat Lovers - Extra Bacon`
+### - `Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers`
+Okay, this task challenged me, and I think I am still not completely blunt here. It took me an enormously long time to figure out that the only viable strategy here is to start with a separate CTE containing only the numbering of each pizza (`ROW_NUMBER() OVER (PARTITION BY co.order_id ORDER BY co.pizza_id, co.exclusions, co.extras) AS rank`). But why exactly? I was trying around for a long time with 2 CTEs, one for the exclusions and one for the extras. The only issue was that I had to use `STRING_AGG()` in any case to be able to create the necessary string concatenation, just as in Question 2. But I did not find any solution to keep each listing in an order separate, since `STRING_AGG()` of course requires `GROUP BY()`, which had to by on the level of `order_id`. To tackle this, I created a first CTE, which is only responsible for creating a `rank`, numbering each pizza in every order. Thus, later in the two other CTEs (for `exclusions` and for `extras`) I could keep using `STRING_AGG()` with grouping on rank level. In the outer query, I only had to replicate the `customer_orders` table and add a concatenation of strings displaying the asked architecture. 
 
 
 ```sql
+WITH ranked_orders AS (
+    -- Assign a unique rank to each pizza in the same order
+    SELECT 
+		co.*,
+        pn.pizza_name,
+        ROW_NUMBER() OVER (PARTITION BY co.order_id ORDER BY co.pizza_id, co.exclusions, co.extras) AS rank
+    FROM customer_orders AS co
+    LEFT JOIN pizza_names AS pn
+        ON co.pizza_id = pn.pizza_id
+),
+excluded_toppings AS (
+    -- Get the distinct toppings to exclude for each pizza, using the rank
+    SELECT
+        ro.order_id,
+        ro.rank,
+        COALESCE(
+            STRING_AGG(DISTINCT pt.topping_name, ', '), ''
+        ) AS excluded_toppings
+    FROM ranked_orders AS ro
+    LEFT JOIN pizza_toppings AS pt
+        ON pt.topping_id = ANY(ro.exclusions::INT[])
+    GROUP BY ro.order_id, ro.rank
+),
+extra_toppings AS (
+    -- Get the distinct toppings to add as extras for each pizza, using the rank
+    SELECT
+        ro.order_id,
+        ro.rank,
+        COALESCE(
+            STRING_AGG(DISTINCT pt.topping_name, ', '), ''
+        ) AS extra_toppings
+    FROM ranked_orders AS ro
+    LEFT JOIN pizza_toppings AS pt
+        ON pt.topping_id = ANY(ro.extras::INT[])
+    GROUP BY ro.order_id, ro.rank
+)
 
+SELECT
+    ro.order_id,
+	ro.customer_id,
+	ro.pizza_id,
+	ro.exclusions,
+	ro.extras,
+	ro.order_time,
+	ro.pizza_name ||
+	CASE 
+	    -- Handle exclusions
+	    WHEN exc.excluded_toppings <> '' THEN ' - Exclude ' || exc.excluded_toppings 
+	    ELSE '' 
+	END ||
+	CASE 
+	    -- Handle extras
+	    WHEN ext.extra_toppings <> '' THEN ' - Extra ' || ext.extra_toppings 
+	    ELSE '' 
+	END AS order_item
+FROM ranked_orders AS ro
+LEFT JOIN excluded_toppings AS exc
+    ON ro.order_id = exc.order_id AND ro.rank = exc.rank
+LEFT JOIN extra_toppings AS ext
+    ON ro.order_id = ext.order_id AND ro.rank = ext.rank
+ORDER BY ro.order_id, ro.rank;
 ```
 
-|  | -  | - | -  |
-|--|--------------|-------|-------|
-| 1| -	          | - | -  |
-| 2| -	          | - | -  |
+| order_id | customer_id | pizza_id | exclusions | extras    | order_time           | order_item                                                 |
+|----------|-------------|----------|------------|-----------|----------------------|------------------------------------------------------------|
+| 1        | 101         | 1        |            |           | 2020-01-01 18:05:02   | Meatlovers                                                  |
+| 2        | 101         | 1        |            |           | 2020-01-01 19:00:52   | Meatlovers                                                  |
+| 3        | 102         | 1        |            |           | 2020-01-02 23:51:23   | Meatlovers                                                  |
+| 3        | 102         | 2        |            |           | 2020-01-02 23:51:23   | Vegetarian                                                  |
+| 4        | 103         | 1        | {4}        |           | 2020-01-04 13:23:46   | Meatlovers - Exclude Cheese                                 |
+| 4        | 103         | 1        | {4}        |           | 2020-01-04 13:23:46   | Meatlovers - Exclude Cheese                                 |
+| 4        | 103         | 2        | {4}        |           | 2020-01-04 13:23:46   | Vegetarian - Exclude Cheese                                 |
+| 5        | 104         | 1        |            | {1}       | 2020-01-08 21:00:29   | Meatlovers - Extra Bacon                                    |
+| 6        | 101         | 2        |            |           | 2020-01-08 21:03:13   | Vegetarian                                                  |
+| 7        | 105         | 2        |            | {1}       | 2020-01-08 21:20:29   | Vegetarian - Extra Bacon                                    |
+| 8        | 102         | 1        |            |           | 2020-01-09 23:54:33   | Meatlovers                                                  |
+| 9        | 103         | 1        | {4}        | {1,5}     | 2020-01-10 11:22:59   | Meatlovers - Exclude Cheese - Extra Bacon, Chicken          |
+| 10       | 104         | 1        | {2,6}      | {1,4}     | 2020-01-11 18:34:49   | Meatlovers - Exclude BBQ Sauce, Mushrooms - Extra Bacon, Cheese |
+| 10       | 104         | 1        |            |           | 2020-01-11 18:34:49   | Meatlovers                                                  |
 
 
-### Question 7: 
-
+### Question 5: Generate an alphabetically ordered comma separated ingredient list for each pizza order from the `customer_orders` table and add a 2x in front of any relevant ingredients
+Well, I am practically braindead by this point. When I read the question, I thought it is going to be a minor change to Question 4. Plot twist, it was a teeny-tiny bit more than that. I had to create a 4th and a 5th CTE, one being responsible for the pulling of the base ingredients and one being responsible for combining the base ingredients with the extras and exclusions. The way I approached this is i used `ARRAY_CAT(bi.base_ingreds, COALESCE(ext.extra_toppings, '{}')` to combine all the `topping_id`s of the base ingredients and the extra ones. Then I conducted `unnest()` to convert the array to a bunch of rows, because it is easier to handle them. The next row `WHERE topping_id_unnest <> ALL(COALESCE(exc.excluded_toppings, '{}'))` makes sure that whenever a `topping_id` is in the `excluded_toppings`, it gets removed from the main ingredients list. After this is done, the unnested bunch is converted back to an `ARRAY()`. With this series of steps, I added the extras and removed the exclusions.
+In the outer query, I only pair up the respective `topping_name`s with the ids and add the `2x` prefix using `WHEN pt.topping_id = ANY(ext.extra_toppings) AND pt.topping_id = ANY(bi.base_ingreds) THEN '2x ' || pt.topping_name`. Easy Peasy, right?...
 
 ```sql
+WITH ranked_orders AS (
+    -- Assign a unique rank to each pizza in the same order
+    SELECT 
+		co.*,
+        pn.pizza_name,
+        ROW_NUMBER() OVER (PARTITION BY co.order_id ORDER BY co.pizza_id, co.exclusions, co.extras) AS rank
+    FROM customer_orders AS co
+    LEFT JOIN pizza_names AS pn
+        ON co.pizza_id = pn.pizza_id
+),
+excluded_toppings AS (
+    -- Get the distinct toppings to exclude for each pizza, using the rank
+    SELECT
+        ro.order_id,
+        ro.rank,
+        COALESCE(
+            ARRAY_AGG(DISTINCT pt.topping_id), '{}'::INT[]
+        ) AS excluded_toppings
+    FROM ranked_orders AS ro
+    LEFT JOIN pizza_toppings AS pt
+        ON pt.topping_id = ANY(ro.exclusions::INT[])
+        -- Add this WHERE clause to filter out NULL exclusions
+        WHERE pt.topping_id IS NOT NULL
+    GROUP BY ro.order_id, ro.rank
+),
+extra_toppings AS (
+    -- Get the distinct toppings to exclude for each pizza, using the rank
+    SELECT
+        ro.order_id,
+        ro.rank,
+        COALESCE(
+            ARRAY_AGG(DISTINCT pt.topping_id), '{}'::INT[]
+        ) AS extra_toppings
+    FROM ranked_orders AS ro
+    LEFT JOIN pizza_toppings AS pt
+        ON pt.topping_id = ANY(ro.extras::INT[])
+        -- Add this WHERE clause to filter out NULL exclusions
+        WHERE pt.topping_id IS NOT NULL
+    GROUP BY ro.order_id, ro.rank
+),
+base_ingredients AS(
+	SELECT
+		ro.order_id,
+		ro.rank,
+		string_to_array(pr.toppings, ',')::INT[] AS base_ingreds
+	FROM ranked_orders AS ro
+	JOIN pizza_recipes as pr
+	ON ro.pizza_id = pr.pizza_id
+	GROUP BY ro.order_id, ro.rank, pr.toppings
+),
+combined_ingredients AS (
+    -- Combine base ingredients and extras, and remove excluded toppings
+    SELECT
+        ro.order_id,
+        ro.rank,
+        ARRAY(
+            SELECT DISTINCT topping_id_unnest
+            FROM unnest(ARRAY_CAT(
+                bi.base_ingreds,
+                COALESCE(ext.extra_toppings, '{}')  -- Ensure we use an empty array if extras are NULL
+            )) AS topping_id_unnest
+            WHERE topping_id_unnest <> ALL(COALESCE(exc.excluded_toppings, '{}'))  -- Handle exclusions as empty array if NULL
+        ) AS final_ingreds
+    FROM ranked_orders AS ro
+    LEFT JOIN base_ingredients AS bi
+        ON ro.order_id = bi.order_id AND ro.rank = bi.rank
+    LEFT JOIN extra_toppings AS ext
+        ON ro.order_id = ext.order_id AND ro.rank = ext.rank
+    LEFT JOIN excluded_toppings AS exc
+        ON ro.order_id = exc.order_id AND ro.rank = exc.rank
+)
 
+SELECT
+    ro.order_id,
+    ro.rank,
+    pn.pizza_name,
+    -- Convert the array of final ingredients into a comma-separated string
+    array_to_string(
+        ARRAY(
+            SELECT 
+                CASE 
+                    -- If the ingredient is in both base ingredients and extras, prefix it with "2x"
+                    WHEN pt.topping_id = ANY(ext.extra_toppings) 
+                         AND pt.topping_id = ANY(bi.base_ingreds)
+                    THEN '2x ' || pt.topping_name
+                    ELSE pt.topping_name
+                END
+            FROM pizza_toppings AS pt
+            WHERE pt.topping_id = ANY(ci.final_ingreds)
+            GROUP BY pt.topping_name, pt.topping_id
+            ORDER BY pt.topping_name
+        ), ', '
+    ) AS final_ingredients
+FROM ranked_orders AS ro
+LEFT JOIN combined_ingredients AS ci
+    ON ro.order_id = ci.order_id AND ro.rank = ci.rank
+LEFT JOIN base_ingredients AS bi
+    ON ro.order_id = bi.order_id AND ro.rank = bi.rank
+LEFT JOIN extra_toppings AS ext
+    ON ro.order_id = ext.order_id AND ro.rank = ext.rank
+LEFT JOIN pizza_names AS pn
+    ON ro.pizza_id = pn.pizza_id
+ORDER BY ro.order_id, ro.rank;
 ```
 
-|  | -  | -  |
-|--|--------------|-----------|
-| 1| -	          | -         |
-| 2| -          | -       |
-| 3| -         | -        |
+| order_id | rank | pizza_name   | final_ingredients                                                                 |
+|----------|------|--------------|-----------------------------------------------------------------------------------|
+| 1        | 1    | Meatlovers   | BBQ Sauce, Bacon, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami              |
+| 2        | 1    | Meatlovers   | BBQ Sauce, Bacon, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami              |
+| 3        | 1    | Meatlovers   | BBQ Sauce, Bacon, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami              |
+| 3        | 2    | Vegetarian   | Cheese, Mushrooms, Onions, Peppers, Tomato Sauce, Tomatoes                         |
+| 4        | 1    | Meatlovers   | BBQ Sauce, Bacon, Beef, Chicken, Mushrooms, Pepperoni, Salami                      |
+| 4        | 2    | Meatlovers   | BBQ Sauce, Bacon, Beef, Chicken, Mushrooms, Pepperoni, Salami                      |
+| 4        | 3    | Vegetarian   | Mushrooms, Onions, Peppers, Tomato Sauce, Tomatoes                                 |
+| 5        | 1    | Meatlovers   | BBQ Sauce, 2x Bacon, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami           |
+| 6        | 1    | Vegetarian   | Cheese, Mushrooms, Onions, Peppers, Tomato Sauce, Tomatoes                         |
+| 7        | 1    | Vegetarian   | Bacon, Cheese, Mushrooms, Onions, Peppers, Tomato Sauce, Tomatoes                  |
+| 8        | 1    | Meatlovers   | BBQ Sauce, Bacon, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami              |
+| 9        | 1    | Meatlovers   | BBQ Sauce, 2x Bacon, Beef, 2x Chicken, Mushrooms, Pepperoni, Salami                |
+| 10       | 1    | Meatlovers   | 2x Bacon, Beef, 2x Cheese, Chicken, Pepperoni, Salami                              |
+| 10       | 2    | Meatlovers   | BBQ Sauce, Bacon, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami              |
+
+### Question 6: What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
+Well, at least this time it really was just a minor tweak compared to the last question. I just had to conduct a `CROSS JOIN LATERAL` in the outer query to `unnest` the arrays containing the ingredients without losing the rows' context. After that I just counted the occurence, paired them up with the ingredient names and sorted them.
+
+```sql
+WITH ranked_orders AS (
+    -- Assign a unique rank to each pizza in the same order
+    SELECT 
+		co.*,
+        pn.pizza_name,
+        ROW_NUMBER() OVER (PARTITION BY co.order_id ORDER BY co.pizza_id, co.exclusions, co.extras) AS rank
+    FROM customer_orders AS co
+    LEFT JOIN pizza_names AS pn
+        ON co.pizza_id = pn.pizza_id
+),
+excluded_toppings AS (
+    -- Get the distinct toppings to exclude for each pizza, using the rank
+    SELECT
+        ro.order_id,
+        ro.rank,
+        COALESCE(
+            ARRAY_AGG(DISTINCT pt.topping_id), '{}'::INT[]
+        ) AS excluded_toppings
+    FROM ranked_orders AS ro
+    LEFT JOIN pizza_toppings AS pt
+        ON pt.topping_id = ANY(ro.exclusions::INT[])
+        -- Add this WHERE clause to filter out NULL exclusions
+        WHERE pt.topping_id IS NOT NULL
+    GROUP BY ro.order_id, ro.rank
+),
+extra_toppings AS (
+    -- Get the distinct toppings to exclude for each pizza, using the rank
+    SELECT
+        ro.order_id,
+        ro.rank,
+        COALESCE(
+            ARRAY_AGG(DISTINCT pt.topping_id), '{}'::INT[]
+        ) AS extra_toppings
+    FROM ranked_orders AS ro
+    LEFT JOIN pizza_toppings AS pt
+        ON pt.topping_id = ANY(ro.extras::INT[])
+        -- Add this WHERE clause to filter out NULL exclusions
+        WHERE pt.topping_id IS NOT NULL
+    GROUP BY ro.order_id, ro.rank
+),
+base_ingredients AS(
+	SELECT
+		ro.order_id,
+		ro.rank,
+		string_to_array(pr.toppings, ',')::INT[] AS base_ingreds
+	FROM ranked_orders AS ro
+	JOIN pizza_recipes as pr
+	ON ro.pizza_id = pr.pizza_id
+	GROUP BY ro.order_id, ro.rank, pr.toppings
+),
+combined_ingredients AS (
+    -- Combine base ingredients and extras, and remove excluded toppings
+    SELECT
+        ro.order_id,
+        ro.rank,
+        ARRAY(
+            SELECT DISTINCT topping_id_unnest
+            FROM unnest(ARRAY_CAT(
+                bi.base_ingreds,
+                COALESCE(ext.extra_toppings, '{}')  -- Ensure we use an empty array if extras are NULL
+            )) AS topping_id_unnest
+            WHERE topping_id_unnest <> ALL(COALESCE(exc.excluded_toppings, '{}'))  -- Handle exclusions as empty array if NULL
+        ) AS final_ingreds
+    FROM ranked_orders AS ro
+    LEFT JOIN base_ingredients AS bi
+        ON ro.order_id = bi.order_id AND ro.rank = bi.rank
+    LEFT JOIN extra_toppings AS ext
+        ON ro.order_id = ext.order_id AND ro.rank = ext.rank
+    LEFT JOIN excluded_toppings AS exc
+        ON ro.order_id = exc.order_id AND ro.rank = exc.rank
+)
+
+SELECT 
+	topping_name,
+    COUNT(topping_id_crossjoin) AS times_used
+FROM combined_ingredients AS ci
+CROSS JOIN LATERAL unnest(ci.final_ingreds) AS topping_id_crossjoin  -- Unnest the array of ingredients
+JOIN pizza_toppings AS pt
+	ON topping_id_crossjoin = pt.topping_id
+GROUP BY topping_name
+ORDER BY times_used DESC;
+```
+
+| topping_name   | times_used |
+|----------------|------------|
+| Mushrooms      | 13         |
+| Bacon          | 11         |
+| Salami         | 10         |
+| Cheese         | 10         |
+| Pepperoni      | 10         |
+| Chicken        | 10         |
+| Beef           | 10         |
+| BBQ Sauce      | 9          |
+| Tomato Sauce   | 4          |
+| Onions         | 4          |
+| Tomatoes       | 4          |
+| Peppers        | 4          |
+
 
 Click [here](https://github.com/gbrsoos/8WeekSQLChallenge/blob/main/Week2-Pizza_Runner/C.%20Ingredient%20Optimisation.md) to continue with C. Ingredient Optimisation
