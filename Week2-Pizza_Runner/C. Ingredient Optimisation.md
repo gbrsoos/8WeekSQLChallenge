@@ -609,4 +609,4 @@ ORDER BY times_used DESC;
 | Peppers        | 4          |
 
 
-Click [here](https://github.com/gbrsoos/8WeekSQLChallenge/blob/main/Week2-Pizza_Runner/C.%20Ingredient%20Optimisation.md) to continue with C. Ingredient Optimisation
+Click [here](https://github.com/gbrsoos/8WeekSQLChallenge/edit/main/Week2-Pizza_Runner/D.%20Pricing%20and%20Ratings.md) to continue with D. Pricing and Ratings
