@@ -1,4 +1,4 @@
-## Week 2/C - Ingredient Optimisation
+## Week 2/D - Pricing and Ratings
 ![8WeekSQLChallenge - Week2](https://8weeksqlchallenge.com/images/case-study-designs/2.png)
 
 ### Introduction
@@ -227,64 +227,174 @@ I am going to be blunt here, I got bored writing pizza_runner all over and over 
 SET search_path TO pizza_runner;
 ```
 
-### Question 1: 
-
-
-```sql
-
-```
-
-|  | - | - |
-|--|--------------|---------|
-| 1| -           | -         |
-| 2| -           | -        |
-
-### Question 2: 
-
+### Question 1: If a Meat Lovers pizza costs $12 and Vegetarian costs $10 and there were no charges for changes - how much money has Pizza Runner made so far if there are no delivery fees?
+After adding the extra column that amtches the given prices to the pizzas, I just used `SUM()` to see the overall price, which is $160.
 
 ```sql
-
+SELECT
+	'$' || SUM(
+		CASE
+			WHEN co.pizza_id = 1 THEN 12
+			ELSE 10 END) AS total_income
+FROM runner_orders AS ro
+JOIN customer_orders AS co
+	ON ro.order_id = co.order_id;
 ```
 
-|  | - | - |
-|--|---------------|-----|
-| 1| -            |   -     |
-| 2| -            |    -    |
-| 3| -            |     -   |
+|  | total_income |
+|--|--------------|
+| 1| $160          |
 
-### Question 3: 
 
+### Question 2: What if there was an additional $1 charge for any pizza extras? `Add cheese is $1 extra`
+Herre I had to circumvent the presence of arrays. To do so, I exploited `regexp_replace()`, which enabled me to remove `{` and `}` from every array, and then convert each number in the `customer_orders.extras` column to see if there was extra Cheese added. If so, I add +$1 to the extra price. Also, since I had two `CASE()` functions applied, I broke the query up to a CTE and an outer query. The results say that there was only one occasion where Cheese was added as an extra.
 
 ```sql
+WITH income_per_pizza_CTE AS(
+	SELECT
+		ro.*,
+		co.pizza_id,
+		co.extras,
+		CASE
+			WHEN co.pizza_id = 1 THEN 12
+			ELSE 10 END AS total_income_base
+	FROM runner_orders AS ro
+	JOIN customer_orders AS co
+		ON ro.order_id = co.order_id
+)
 
+SELECT
+	'$' || SUM(CASE
+                WHEN 4 = ANY(string_to_array(regexp_replace(extras, '[{}]', '', 'g'), ',')::INT[]) 
+					THEN total_income_base + 1
+				ELSE total_income_base END) AS total_income
+FROM income_per_pizza_CTE
 ```
 
-|  | - | -  |
-|--|--------------|---------------|
-| 1| -           | -       |
-| 2| -           | -         |
-| 3| BBQ -           | -         |
+|  | total_income |
+|--|--------------|
+| 1| $160          |
 
-### Question 4: 
-
+### Question 3: The Pizza Runner team now wants to add an additional ratings system that allows customers to rate their runner, how would you design an additional table for this new dataset - generate a schema for this new table and insert your own data for ratings for each successful customer order between 1 to 5.
+Here I displayed all the queries I ran. In the first step, I created the new schema. In the second one, I created the base `ratings` table, which includes everything from the `runner_orders` table, and the `customer_id` from the `custoemr_orders` table, to have all the needed information. `DISTINCT` is required here to only keep one row for each `order_id`. After this, I created the `ratings` column, and I assigned a good-hearted 5 to each order which was successful, so if `cancellation IS NULL`.
 
 ```sql
-
+CREATE SCHEMA pizza_runner_ratings;
+```
+```sql
+CREATE TABLE pizza_runner_ratings.ratings AS
+SELECT	DISTINCT
+	co.customer_id,
+	ro.*
+FROM pizza_runner.customer_orders AS co
+LEFT JOIN pizza_runner.runner_orders AS ro
+	ON co.order_id = ro.order_id;
+```
+```sql
+ALTER TABLE pizza_runner_ratings.ratings
+ADD COLUMN ratings INTEGER;
+```
+```sql
+UPDATE pizza_runner_ratings.ratings
+SET ratings = '5'
+WHERE cancellation IS NULL;
 ```
 
-| - | - |
-|----------|-------------|
-| -        | -         |
+| customer_id | order_id | runner_id | pickup_time         | distance | duration | cancellation            | ratings |
+|-------------|----------|-----------|---------------------|----------|----------|--------------------------|---------|
+| 101         | 6        | 3         |                     |          |          | Restaurant Cancellation  |         |
+| 103         | 9        | 2         |                     |          |          | Customer Cancellation    |         |
+| 105         | 7        | 2         | 2020-01-08 21:30:45 | 25       | 25       |                          | 5       |
+| 102         | 3        | 1         | 2020-01-03 00:12:37 | 13.4     | 20       |                          | 5       |
+| 102         | 8        | 2         | 2020-01-10 00:15:02 | 23.4     | 15       |                          | 5       |
+| 104         | 5        | 3         | 2020-01-08 21:10:57 | 10       | 15       |                          | 5       |
+| 101         | 1        | 1         | 2020-01-01 18:15:34 | 20       | 32       |                          | 5       |
+| 103         | 4        | 2         | 2020-01-04 13:53:03 | 23.4     | 40       |                          | 5       |
+| 104         | 10       | 1         | 2020-01-11 18:50:20 | 10       | 10       |                          | 5       |
+| 101         | 2        | 1         | 2020-01-01 19:10:54 | 20       | 27       |                          | 5       |
 
-
-
-### Question 5: 
-
+### Question 4: Using your newly generated table - can you join all of the information together to form a table which has the following information for successful deliveries?
+`customer_id`
+`order_id`
+`runner_id`
+`rating`
+`order_time`
+`pickup_time`
+`Time between order and pickup`
+`Delivery duration`
+`Average speed`
+`Total number of pizzas`
+Since the last question wanted to aggregate to orders rather than elements of orders, I had to create a CTE where I count the number of pizzas per order. Additionally, I did not include `order_time`, so I needed to attach that as well using `JOIN`. 
 
 ```sql
+WITH pizza_count_CTE AS (
+	SELECT
+		order_id,
+		COUNT(order_id) AS pizza_num
+	FROM pizza_runner.customer_orders
+	GROUP BY order_id
+)
 
+SELECT DISTINCT
+	r.customer_id,
+	r.order_id,
+	r.runner_id,
+	r.ratings,
+	co.order_time,
+	r.pickup_time,
+	ROUND(EXTRACT(EPOCH FROM (pickup_time::TIMESTAMP - order_time::TIMESTAMP)) / 60, 2) AS time_between_order_and_pickup,
+	r.duration AS delivery_time,
+	ROUND((r.distance / r.duration * 60)::INT, 2) AS avg_speed,
+	pizza_num AS pizzas_delivered
+FROM ratings AS r
+JOIN pizza_runner.customer_orders AS co
+	ON r.order_id = co.order_id
+JOIN pizza_count_CTE AS pc
+	ON r.order_id = pc.order_id
+WHERE cancellation IS NULL
 ```
 
-| - | - |
-|----------|------|
-| -        | -    |
+| customer_id | order_id | runner_id | ratings | order_time          | pickup_time         | time_between_order_and_pickup | delivery_time | avg_speed | pizzas_delivered |
+|-------------|----------|-----------|---------|---------------------|---------------------|-------------------------------|---------------|-----------|------------------|
+| 101         | 1        | 1         | 5       | 2020-01-01 18:05:02 | 2020-01-01 18:15:34 | 10.53                         | 32            | 38.00     | 1                |
+| 101         | 2        | 1         | 5       | 2020-01-01 19:00:52 | 2020-01-01 19:10:54 | 10.03                         | 27            | 44.00     | 1                |
+| 102         | 3        | 1         | 5       | 2020-01-02 23:51:23 | 2020-01-03 00:12:37 | 21.23                         | 20            | 40.00     | 2                |
+| 102         | 8        | 2         | 5       | 2020-01-09 23:54:33 | 2020-01-10 00:15:02 | 20.48                         | 15            | 94.00     | 1                |
+| 103         | 4        | 2         | 5       | 2020-01-04 13:23:46 | 2020-01-04 13:53:03 | 29.28                         | 40            | 35.00     | 3                |
+| 104         | 5        | 3         | 5       | 2020-01-08 21:00:29 | 2020-01-08 21:10:57 | 10.47                         | 15            | 40.00     | 1                |
+| 104         | 10       | 1         | 5       | 2020-01-11 18:34:49 | 2020-01-11 18:50:20 | 15.52                         | 10            | 60.00     | 2                |
+| 105         | 7        | 2         | 5       | 2020-01-08 21:20:29 | 2020-01-08 21:30:45 | 10.27                         | 25            | 60.00     | 1                |
+
+### Question 5: If a Meat Lovers pizza was $12 and Vegetarian $10 fixed prices with no cost for extras and each runner is paid $0.30 per kilometre traveled - how much money does Pizza Runner have left over after these deliveries?
+This is very similar to Question 1, but I added the subtraction of $0.3 per kilometer driven. This leaves the company with $73.38.
+
+```sql
+SELECT
+	'$' || SUM(
+		CASE
+			WHEN co.pizza_id = 1 THEN (12 - ro.distance * 0.3)
+			ELSE (10 - ro.distance * 0.3) END) AS total_income
+FROM runner_orders AS ro
+JOIN customer_orders AS co
+	ON ro.order_id = co.order_id;
+```
+
+| total_income |
+|----------|
+| $73.38        |
+
+### Bonus question: If Danny wants to expand his range of pizzas - how would this impact the existing data design? Write an INSERT statement to demonstrate what would happen if a new Supreme pizza with all the toppings was added to the Pizza Runner menu?
+The two tables to be altered here are `pizza_names` and `pizza_recipes`. For the first, I added the new id and the name, and for the recipes, the new id and all the possible toppings have t obe inserted.
+
+```sql
+INSERT INTO pizza_runner.pizza_names
+VALUES
+(3, 'Supreme')
+```
+```sql
+INSERT INTO pizza_runner.pizza_recipes
+VALUES
+(3, '1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12')
+```
+
+**Week 2 done, now let me go to have some sleep before Week 3!**
