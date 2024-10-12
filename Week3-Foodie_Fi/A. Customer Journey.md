@@ -2750,4 +2750,4 @@ ORDER BY customer_id, plan_id;
 | 19          | 2       | 2020-06-29  | pro monthly    |
 | 19          | 3       | 2020-08-29  | pro annual     |
 
-Click [here](https://github.com/gbrsoos/8WeekSQLChallenge/edit/main/Week2-Pizza_Runner/D.%20Pricing%20and%20Ratings.md) to continue with part B. Data Analysis Questions
+Click [here](https://github.com/gbrsoos/8WeekSQLChallenge/blob/main/Week3-Foodie_Fi/B.%20Data%20Analysis%20Questions.md) to continue with part B. Data Analysis Questions
