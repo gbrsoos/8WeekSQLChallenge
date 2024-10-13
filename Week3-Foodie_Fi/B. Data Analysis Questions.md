@@ -82,7 +82,7 @@ ORDER BY num_of_purchase;
 | pro annual       | 63          |
 | churn       | 71          |
 
-### Question 3: What is the customer count and percentage of customers who have churned rounded to 1 decimal place? 
+### Question 4: What is the customer count and percentage of customers who have churned rounded to 1 decimal place? 
 Initially CTEs came to my mind regarding the way of solution, but I realized that there is no point creating a CTE to perform one single aggregation since I will not be able to join it with the outer query. So I used a nested `SELECT` clause to be able to perform the required division.
 
 ```sql
