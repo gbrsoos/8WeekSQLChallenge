@@ -22,15 +22,15 @@ To get this number, I used `COUNT(DISTINCT )` to count how many unique `customer
 ```sql
 SELECT 
 	COUNT(DISTINCT customer_id) AS num_of_customers
-	FROM subscriptions
+	FROM subscriptions;
 ```
 
 |  | num_of_customers |
 |--|---------------|
 | 1| 1000            |
 
-### Question 2:What is the monthly distribution of trial plan start_date values for our dataset - use the start of the month as the group by value
-***DOLGOK IDE***
+### Question 2: What is the monthly distribution of trial plan start_date values for our dataset - use the start of the month as the group by value
+First, I converted the `start_date` from `DATE` format to characters using `TO_CHAR()`, and obtained only the name of each month. Then I used `COUNT()` to count the occasions where a `trial` plan started for each month and sorted them based on the number.
 
 ```sql
 SELECT 
@@ -59,4 +59,41 @@ ORDER BY total_plans DESC;
 | November    | 75          |
 | February    | 68          |
 
+
+### Question 3: What plan start_date values occur after the year 2020 for our dataset? Show the breakdown by count of events for each plan_name
+Even though the question itself is not very clear in terms of what the author is interested in, as per my best understanding, they only want to know the number of purchases per plans from the date 2021. 01. 01. From here on, the query is pretty straightforward, which can be seen below.
+
+```sql
+SELECT 
+	plan_name,
+	COUNT(*) AS num_of_purchase
+FROM subscriptions AS s
+JOIN plans AS p 
+	ON s.plan_id = p.plan_id
+WHERE start_date::DATE >= '2021-01-01'
+GROUP BY plan_name
+ORDER BY num_of_purchase;
+```
+
+| plan_name  | num_of_purchase |
+|-------------|-------------|
+| basic monthly       | 8          |
+| pro monthly       | 60          |
+| pro annual       | 63          |
+| churn       | 71          |
+
+### Question 3: What is the customer count and percentage of customers who have churned rounded to 1 decimal place? 
+Initially CTEs came to my mind regarding the way of solution, but I realized that there is no point creating a CTE to perform one single aggregation since I will not be able to join it with the outer query. So I used a nested `SELECT` clause to be able to perform the required division.
+
+```sql
+SELECT 
+	COUNT(DISTINCT customer_id) AS num_of_churners,
+	ROUND(100.0 * COUNT(DISTINCT customer_id) / (SELECT COUNT(DISTINCT customer_id) FROM subscriptions), 1) AS perc_of_churners
+FROM subscriptions
+WHERE plan_id = 4;
+```
+
+| num_of_churners  | perc_of_churners |
+|-------------|-------------|
+| 307      | 30.7          |
 
