@@ -98,7 +98,7 @@ WHERE plan_id = 4;
 | 307      | 30.7          |
 
 ### Question 5: How many customers have churned straight after their initial free trial - what percentage is this rounded to the nearest whole number?
-
+To be completely failure-proof, I used 2 CTEs here. One is responsible for creating a row_number for each separate purchase of the customers, and the second one counts whether it is true that the customer started with a trial and followed by churning. In the outer query, I just filter the cases where it is true (`identifier = 2`) and do the necessary calculations.
 
 ```sql
 WITH presence_cte AS (
@@ -122,10 +122,73 @@ SELECT
 	COUNT(customer_id) AS churned_after_trial,
 	ROUND(100 * COUNT(customer_id) / (SELECT COUNT(DISTINCT customer_id) FROM subscriptions), 0) AS percent_to_sample
 FROM identify_cte AS i
-WHERE identifier = 2
+WHERE identifier = 2;
 ```
 
 | churned_after_trial  | percent_to_sample |
 |-------------|-------------|
-| 92      | 9 |
+| 92      | 9        |
+
+### Question 6: What is the number and percentage of customer plans after their initial free trial?
+For this solution to work, I had to do a preliminary query, which ensured me about the fact that all the 1,000 customers started their journey with the free trial. Knowing this, I was only interested in knowing the distribution of plans where the `row_number` created in the CTE is `1`.
+
+```sql
+WITH second_plan_cte AS (
+	SELECT
+		s.*,
+		ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY start_date)
+	FROM subscriptions AS s
+	JOIN plans AS p
+		ON s.plan_id = p.plan_id
+)
+
+SELECT 
+	plan_name,
+	COUNT(plan_name) AS num_after_trial,
+	ROUND(100.0 * COUNT(plan_name) / (SELECT COUNT(*) FROM subscriptions), 2) AS perc_after_trial
+FROM second_plan_cte AS sp
+JOIN plans AS p
+	ON sp.plan_id = p.plan_id
+WHERE row_number = 2
+GROUP BY plan_name;
+```
+
+| plan_name      | num_after_trial | perc_after_trial |
+|----------------|-----------------|------------------|
+| basic monthly  | 546             | 20.60            |
+| churn          | 92              | 3.47             |
+| pro annual     | 37              | 1.40             |
+| pro monthly    | 325             | 12.26            |
+
+### Question 7: What is the customer count and percentage breakdown of all 5 plan_name values at 2020-12-31?
+
+
+```sql
+WITH status_cte AS(
+	SELECT
+		s.*,
+		p.plan_name,
+		LEAD(start_date) OVER (PARTITION BY customer_id ORDER BY start_date) AS upcoming_date
+	FROM subscriptions AS s
+	JOIN plans AS p
+		ON s.plan_id = p.plan_id
+	WHERE start_date <= '2020-12-31'
+)
+
+SELECT 
+	plan_name,
+	COUNT(DISTINCT customer_id) AS num_cust,
+	ROUND(100.0 * COUNT(DISTINCT customer_id) / (SELECT COUNT(DISTINCT customer_id) FROM subscriptions), 1) AS perc_cust
+FROM status_cte
+WHERE upcoming_date IS NULL
+GROUP BY plan_name
+```
+
+| plan_name      | num_cust | perc_cust |
+|----------------|-----------------|------------------|
+| basic monthly  | 224             | 22.4            |
+| churn  | 236             | 23.6            |
+| pro annual  | 195             | 19.5            |
+| pro monthly  | 326             | 32.6            |
+| trial  | 19             | 1.9            |
 
