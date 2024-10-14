@@ -97,3 +97,35 @@ WHERE plan_id = 4;
 |-------------|-------------|
 | 307      | 30.7          |
 
+### Question 5: How many customers have churned straight after their initial free trial - what percentage is this rounded to the nearest whole number?
+
+
+```sql
+WITH presence_cte AS (
+	SELECT
+		s.*,
+		ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY start_date)
+	FROM subscriptions AS s
+	JOIN plans AS p
+		ON s.plan_id = p.plan_id
+),
+identify_cte AS (
+	SELECT 
+		customer_id,
+		COUNT(customer_id) AS identifier
+	FROM presence_cte AS p
+	WHERE (plan_id = 0 AND row_number = 1) OR (plan_id = 4 AND row_number = 2)
+	GROUP BY customer_id
+)
+
+SELECT 
+	COUNT(customer_id) AS churned_after_trial,
+	ROUND(100 * COUNT(customer_id) / (SELECT COUNT(DISTINCT customer_id) FROM subscriptions), 0) AS percent_to_sample
+FROM identify_cte AS i
+WHERE identifier = 2
+```
+
+| churned_after_trial  | percent_to_sample |
+|-------------|-------------|
+| 92      | 9 |
+
