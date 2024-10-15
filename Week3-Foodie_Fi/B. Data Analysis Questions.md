@@ -161,7 +161,7 @@ GROUP BY plan_name;
 | pro monthly    | 325             | 12.26            |
 
 ### Question 7: What is the customer count and percentage breakdown of all 5 plan_name values at 2020-12-31?
-
+The tricky part in this question is the identification of the most recent purchase (which is the one being active at `2020-12-31`). To do this, I used the `LEAD()` function, which puts `NULL` to the latest purchase for each `customer_id`. Thus I could identify the latest purcahses in the CTE, and I just assembled the required output in the outer query.
 
 ```sql
 WITH status_cte AS(
@@ -181,7 +181,7 @@ SELECT
 	ROUND(100.0 * COUNT(DISTINCT customer_id) / (SELECT COUNT(DISTINCT customer_id) FROM subscriptions), 1) AS perc_cust
 FROM status_cte
 WHERE upcoming_date IS NULL
-GROUP BY plan_name
+GROUP BY plan_name;
 ```
 
 | plan_name      | num_cust | perc_cust |
@@ -192,3 +192,125 @@ GROUP BY plan_name
 | pro monthly  | 326             | 32.6            |
 | trial  | 19             | 1.9            |
 
+### Question 8: How many customers have upgraded to an annual plan in 2020? 
+This question is fairly simple in terms of used syntax compared to the previous ones. I think the `EXTRACT()` function is the only part worth mentioning. I used it to yank the years from each `start_date`, so that it became much easier to filter on. I also performed the filtering on `plan_id = 3`, which is he id of the plan called `pro annual`.
+
+```sql
+SELECT 
+	COUNT(DISTINCT customer_id) AS custs_annual
+FROM subscriptions AS s
+WHERE EXTRACT(YEAR FROM start_date) = 2020
+	AND plan_id = 3;
+```
+
+| custs_annual      |
+|----------------|
+| 195 |
+
+### Question 9: How many days on average does it take for a customer to an annual plan from the day they join Foodie-Fi?
+In the first CTE, I created a numbering for each purchase of a customer, then I filtered for the first purchase and the date of upgrade to annual plan. In the outer query, I just subtracted the two dates from eachother and used `ROUND(AVG())` to see the closest whole day as the average.
+
+```sql
+WITH row_num_cte AS (
+	SELECT
+		*,
+		ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY start_date) AS row_num
+	FROM subscriptions
+),
+join_cte AS (
+	SELECT
+		*
+	FROM row_num_cte
+	WHERE row_num = 1
+),
+annual_cte AS (
+	SELECT
+		*
+	FROM row_num_cte
+	WHERE plan_id = 3
+)
+
+SELECT
+	ROUND(AVG(a.start_date - j.start_date), 0) AS avg_days
+FROM join_cte AS j
+JOIN annual_cte AS a
+	ON j.customer_id = a.customer_id;
+```
+
+| avg_days      |
+|----------------|
+| 105 |
+
+### Question 10: Can you further breakdown this average value into 30 day periods (i.e. 0-30 days, 31-60 days etc) 
+I optimized the CTE structure compared to the previous question. I forgot to utilize the fact that the subscription starts with a trial in all cases, so the use of `ROW_NUMBER()` is not required. Thus, I could spare a CTE. To create the buckets, I used `WIDTH_BUCKET()`, which created the bins based on a minimum value, a maximum value, and the number of buckets required. After that I just had to create a concatenated string which displays the bucket in the expected format. 
+
+```sql
+WITH join_cte AS (
+	SELECT
+		*
+	FROM subscriptions
+	WHERE plan_id = 0
+),
+annual_cte AS (
+	SELECT
+		*
+	FROM subscriptions
+	WHERE plan_id = 3
+),
+bins_cte AS(
+	SELECT
+		j.customer_id,
+		j.start_date AS join_date,
+		a.start_date AS annual_date,
+	    WIDTH_BUCKET(a.start_date - j.start_date, 0, 365, 12) AS bins
+	FROM join_cte AS j
+	JOIN annual_cte AS a
+		ON j.customer_id = a.customer_id
+)
+
+SELECT
+	CASE
+		WHEN bins = 1 THEN '0-30 days'
+		ELSE ((bins - 1) * 30 + 1) || '-' || (bins * 30) || ' days' END AS day_range,
+	COUNT(*) AS num_of_custs
+FROM bins_cte
+GROUP BY bins
+ORDER BY bins;
+```
+
+| day_range      | num_of_custs |
+|----------------|--------------|
+| 0-30 days      | 49           |
+| 31-60 days     | 24           |
+| 61-90 days     | 35           |
+| 91-120 days    | 35           |
+| 121-150 days   | 43           |
+| 151-180 days   | 37           |
+| 181-210 days   | 24           |
+| 211-240 days   | 4            |
+| 241-270 days   | 4            |
+| 271-300 days   | 1            |
+| 301-330 days   | 1            |
+| 331-360 days   | 1            |
+
+
+### Question 11: How many customers downgraded from a pro monthly to a basic monthly plan in 2020?
+Here I again used `LEAD()` to create a column which displays the next plan purchased by each customer at each instance. With this, I only needed to use one CTE and a simple `WHERE()` filtering. Interestingly, there are no occasions in 2020 where such a downgrade happened. 
+
+```sql
+WITH cte AS (
+	SELECT
+		*,
+		LEAD(plan_id) OVER (PARTITION BY customer_id ORDER BY start_date) AS next_plan
+	FROM subscriptions
+)
+
+SELECT
+	COUNT(customer_id) AS num_of_custs
+FROM cte
+WHERE plan_id = 2 AND next_plan = 1 AND EXTRACT(YEAR FROM start_date) = 2020
+```
+
+| num_of_custs      |
+|----------------|
+| 0      |
