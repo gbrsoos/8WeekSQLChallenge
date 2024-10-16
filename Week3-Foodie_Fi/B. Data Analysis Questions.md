@@ -314,3 +314,6 @@ WHERE plan_id = 2 AND next_plan = 1 AND EXTRACT(YEAR FROM start_date) = 2020
 | num_of_custs      |
 |----------------|
 | 0      |
+
+Click [here](https://github.com/gbrsoos/8WeekSQLChallenge/blob/main/Week3-Foodie_Fi/C.%20Challenge%20Payment%20Question.md) to continue with part C. Challenge Payment Question 
+
