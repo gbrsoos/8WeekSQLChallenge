@@ -9432,7 +9432,7 @@ VALUES
 </details>
 
 ### Question 1: How many unique nodes are there on the Data Bank system? 
-*** !!! ***
+To see the number of unique nodes, I used `COUNT(DISTINCT)` to see the number of unique nodes in the database. 
 
 ```sql
 SELECT 
@@ -9445,7 +9445,7 @@ FROM customer_nodes;
 | 5 |
 
 ### Question 2: What is the number of nodes per region? 
-*** !!! ***
+This query basically does the same as above, but there is a grouping on `region_id` to have the required breakdown.
 
 ```sql
 SELECT 
@@ -9466,8 +9466,7 @@ ORDER BY region_id ASC;
 
 
 ### Question 3: How many customers are allocated to each region?
-*** !!! ***
-
+Here I did the same grouping as for Question 2, but for each region I looked for the unique `customer_id`s to filter out the node reallocations.
 
 ```sql
 SELECT 
@@ -9487,7 +9486,7 @@ ORDER BY region_id ASC;
 | 5         | 88          |
 
 ### Question 4: How many days on average are customers reallocated to a different node?
-*** !!! ***
+It was not clear if the reallocation to the same node counts, so I just included the filtering of this mechanism as well to be more robust. The first CTE introduces two extra columns. The first `ROW_NUMBER()` separates the entries based on `start_date` and resets for each `customer_id`, and the second one groups the customers' presence for each node based on the `MIN(start_date)` and the `MAX(end_date)`. After this, the duration of each allocation is calculated.
 
 ```sql
 WITH ranked_nodes AS (
@@ -9531,7 +9530,7 @@ FROM allocation_durations;
 | 17.83         |
 
 ### Question 5: What is the median, 80th and 95th percentile for this same reallocation days metric for each region? 
-*** !!! ***
+I used the same logic as for Question 4, but I also introduced `region_id` along the CTEs. At the outer query, I calculated the percentiles using `PERCENTILE_CONT()`
 
 ```sql
 WITH ranked_nodes AS (
