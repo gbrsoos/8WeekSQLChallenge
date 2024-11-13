@@ -1,5 +1,5 @@
 ## Week 4/A - Customer Nodes Exploration
-![8WeekSQLChallenge - Week4](https://8weeksqlchallenge.com/images/case-study-designs/3.png)
+![8WeekSQLChallenge - Week4](https://8weeksqlchallenge.com/images/case-study-designs/4.png)
 
 ### Introduction
 Subscription based businesses are super popular and Danny realised that there was a large gap in the market - he wanted to create a new streaming service that only had food related content - something like Netflix but with only cooking shows!
@@ -10,11 +10,11 @@ Danny created Foodie-Fi with a data driven mindset and wanted to ensure all futu
 
 ### Database
 #### Entity Relationship Diagram
-![Week 4 - Entity Relationship Diagram](https://8weeksqlchallenge.com/images/case-study-3-erd.png)
+![Week 4 - Entity Relationship Diagram](https://8weeksqlchallenge.com/images/case-study-4-erd.png)
 
 
 ## Solution
-### Step 1: Getting hold of the database from [DB-Fiddle](https://www.db-fiddle.com/f/rHJhRrXy5hbVBNJ6F6b9gJ/16)
+### Step 1: Getting hold of the database from [DB-Fiddle](https://www.db-fiddle.com/f/2GtQz4wZtuNNu7zXH5HtV4/3)
 
 <details>
   <summary>Click to expand SQL script</summary>
@@ -9428,51 +9428,162 @@ VALUES
   ('189', '2020-02-06', 'purchase', '393'),
   ('189', '2020-01-22', 'deposit', '302'),
   ('189', '2020-01-27', 'withdrawal', '861');
-```
+
 </details>
 
-### Question 1: Based off the 8 sample customers provided in the sample from the subscriptions table, write a brief description about each customer’s onboarding journey. Try to keep it as short as possible - you may also want to run some sort of join to make your explanations a bit easier!
-Based on the table attached on the website, I recreated the query pulling the 8 customers of interest. I performed a `JOIN` as it was suggested to see the actual name of the plans the customers indulged in buying. The main thing to mention is that each of the 8 customers started off their career on Foodie-Fi with the trial option, and upgraded afterwards. This is why a `customer_id` is represented multiple times in the database, since each of their purchase (let it be an upgrade or a downgrade) is recorded. You can also see that the supposedly free trial is one week long, since all of them have changed package in one week's time.
+### Question 1: How many unique nodes are there on the Data Bank system? 
+*** !!! ***
 
 ```sql
 SELECT 
-	s.*,
-	p.plan_name
-FROM subscriptions AS s
-JOIN plans AS p
-	ON s.plan_id = p.plan_id
-WHERE customer_id = 1 
-	OR customer_id = 2 
-	OR customer_id = 11
-	OR customer_id = 13
-	OR customer_id = 15 
-	OR customer_id = 16
-	OR customer_id = 18
-	OR customer_id = 19
-ORDER BY customer_id, plan_id;
+	COUNT(DISTINCT node_id) AS number_of_nodes
+FROM customer_nodes;
 ```
 
-| customer_id | plan_id | start_date  | plan_name      |
-|-------------|---------|-------------|----------------|
-| 1           | 0       | 2020-08-01  | trial          |
-| 1           | 1       | 2020-08-08  | basic monthly  |
-| 2           | 0       | 2020-09-20  | trial          |
-| 2           | 3       | 2020-09-27  | pro annual     |
-| 11          | 0       | 2020-11-19  | trial          |
-| 11          | 4       | 2020-11-26  | churn          |
-| 13          | 0       | 2020-12-15  | trial          |
-| 13          | 1       | 2020-12-22  | basic monthly  |
-| 13          | 2       | 2021-03-29  | pro monthly    |
-| 15          | 0       | 2020-03-17  | trial          |
-| 15          | 2       | 2020-03-24  | pro monthly    |
-| 15          | 4       | 2020-04-29  | churn          |
-| 16          | 0       | 2020-05-31  | trial          |
-| 16          | 1       | 2020-06-07  | basic monthly  |
-| 16          | 3       | 2020-10-21  | pro annual     |
-| 18          | 0       | 2020-07-06  | trial          |
-| 18          | 2       | 2020-07-13  | pro monthly    |
-| 19          | 0       | 2020-06-22  | trial          |
-| 19          | 2       | 2020-06-29  | pro monthly    |
-| 19          | 3       | 2020-08-29  | pro annual     |
+| number_of_nodes | 
+|-----------|
+| 5 |
+
+### Question 2: What is the number of nodes per region? 
+*** !!! ***
+
+```sql
+SELECT 
+	region_id,
+	COUNT(node_id) AS num_node_ids
+FROM customer_nodes
+GROUP BY region_id
+ORDER BY region_id ASC;
+```
+
+| region_id | num_node_ids |
+|-----------|--------------|
+| 1         | 5          |
+| 2         | 5          |
+| 3         | 5          |
+| 4         | 5          |
+| 5         | 5          |
+
+
+### Question 4: How many days on average are customers reallocated to a different node?
+*** !!! ***
+How many customers are allocated to each region?
+
+```sql
+SELECT 
+	region_id,
+	COUNT(DISTINCT customer_id) AS num_custs
+FROM customer_nodes
+GROUP BY region_id
+ORDER BY region_id ASC;
+```
+
+| region_id | num_custs |
+|-----------|--------------|
+| 1         | 110          |
+| 2         | 105          |
+| 3         | 102          |
+| 4         | 95          |
+| 5         | 88          |
+
+### Question 4: How many days on average are customers reallocated to a different node?
+*** !!! ***
+
+```sql
+WITH ranked_nodes AS (
+    SELECT 
+        customer_id,
+        node_id,
+        start_date,
+        end_date,
+        -- Rank rows based on node change for each customer to identify consecutive stays in the same node
+        ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY start_date)
+         - ROW_NUMBER() OVER (PARTITION BY customer_id, node_id ORDER BY start_date) AS change_group
+    FROM customer_nodes
+	WHERE EXTRACT(YEAR FROM end_date) < 9999
+),
+
+grouped_nodes AS (
+    SELECT
+        customer_id,
+        node_id,
+        MIN(start_date) AS start_date,  -- Get the start date of the grouped consecutive stay
+        MAX(end_date) AS end_date       -- Get the end date of the grouped consecutive stay
+    FROM ranked_nodes
+    GROUP BY customer_id, node_id, change_group
+),
+
+allocation_durations AS (
+    SELECT
+        customer_id,
+        node_id,
+        end_date - start_date AS duration
+    FROM grouped_nodes
+)
+
+SELECT
+    ROUND(AVG(duration), 2) AS avg_days_reallocated
+FROM allocation_durations;
+```
+
+| avg_days_reallocated |
+|-----------|
+| 17.83         |
+
+### Question 4: How many customers are allocated to each region?
+*** !!! ***
+
+```sql
+WITH ranked_nodes AS (
+    SELECT 
+        customer_id,
+        node_id,
+        start_date,
+        end_date,
+        -- Rank rows based on node change for each customer to identify consecutive stays in the same node
+        ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY start_date)
+         - ROW_NUMBER() OVER (PARTITION BY customer_id, node_id ORDER BY start_date) AS change_group
+    FROM customer_nodes
+	WHERE EXTRACT(YEAR FROM end_date) < 9999
+),
+
+grouped_nodes AS (
+    SELECT
+        customer_id,
+        node_id,
+        MIN(start_date) AS start_date,  -- Get the start date of the grouped consecutive stay
+        MAX(end_date) AS end_date       -- Get the end date of the grouped consecutive stay
+    FROM ranked_nodes
+    GROUP BY customer_id, node_id, change_group
+),
+
+allocation_durations AS (
+    SELECT
+        customer_id,
+        node_id,
+        end_date - start_date AS duration
+    FROM grouped_nodes
+)
+
+SELECT
+    ROUND(AVG(duration), 2) AS avg_days_reallocated
+FROM allocation_durations;
+```
+
+| avg_days_reallocated |
+|-----------|
+| 17.83         |
+
+
+
+
+
+
+
+
+
+
+
+
 
 Click [here](https://github.com/gbrsoos/8WeekSQLChallenge/blob/main/Week3-Foodie_Fi/B.%20Data%20Analysis%20Questions.md) to continue with part B. Data Analysis Questions
