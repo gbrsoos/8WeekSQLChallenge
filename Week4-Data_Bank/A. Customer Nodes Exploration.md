@@ -9428,7 +9428,7 @@ VALUES
   ('189', '2020-02-06', 'purchase', '393'),
   ('189', '2020-01-22', 'deposit', '302'),
   ('189', '2020-01-27', 'withdrawal', '861');
-
+```
 </details>
 
 ### Question 1: How many unique nodes are there on the Data Bank system? 
@@ -9465,9 +9465,9 @@ ORDER BY region_id ASC;
 | 5         | 5          |
 
 
-### Question 4: How many days on average are customers reallocated to a different node?
+### Question 3: How many customers are allocated to each region?
 *** !!! ***
-How many customers are allocated to each region?
+
 
 ```sql
 SELECT 
@@ -9530,7 +9530,7 @@ FROM allocation_durations;
 |-----------|
 | 17.83         |
 
-### Question 4: How many customers are allocated to each region?
+### Question 5: What is the median, 80th and 95th percentile for this same reallocation days metric for each region? 
 *** !!! ***
 
 ```sql
@@ -9538,6 +9538,7 @@ WITH ranked_nodes AS (
     SELECT 
         customer_id,
         node_id,
+		region_id,
         start_date,
         end_date,
         -- Rank rows based on node change for each customer to identify consecutive stays in the same node
@@ -9551,39 +9552,32 @@ grouped_nodes AS (
     SELECT
         customer_id,
         node_id,
+		region_id,
         MIN(start_date) AS start_date,  -- Get the start date of the grouped consecutive stay
         MAX(end_date) AS end_date       -- Get the end date of the grouped consecutive stay
     FROM ranked_nodes
-    GROUP BY customer_id, node_id, change_group
+    GROUP BY customer_id, node_id, region_id, change_group
 ),
 
 allocation_durations AS (
     SELECT
         customer_id,
         node_id,
+		region_id,
         end_date - start_date AS duration
     FROM grouped_nodes
 )
 
-SELECT
-    ROUND(AVG(duration), 2) AS avg_days_reallocated
+SELECT 
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY region_id) AS median,
+    PERCENTILE_CONT(0.8) WITHIN GROUP (ORDER BY region_id) AS percentile_80,
+    PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY region_id) AS percentile_95
 FROM allocation_durations;
 ```
 
-| avg_days_reallocated |
-|-----------|
-| 17.83         |
-
-
-
-
-
-
-
-
-
-
-
+| median | percentile_80 | percentile_95 |
+|--------|---------------|---------------|
+| 3      | 4             | 5             |
 
 
 Click [here](https://github.com/gbrsoos/8WeekSQLChallenge/blob/main/Week3-Foodie_Fi/B.%20Data%20Analysis%20Questions.md) to continue with part B. Data Analysis Questions
